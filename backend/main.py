@@ -1,13 +1,16 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from database import get_db, create_tables
+from models import Zone as ZoneModel, Base
 import os
 import uuid
 import cv2
 import numpy as np
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List, Optional
 import aiofiles
 from pathlib import Path
 from PIL import Image
@@ -16,7 +19,6 @@ import logging
 import json
 
 # Add these imports to your existing main.py
-from typing import List, Optional
 from pydantic import BaseModel
 
 # Set up logging
@@ -30,7 +32,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -42,17 +43,52 @@ app.add_middleware(
         "http://127.0.0.1:8080",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+        # Remove "*" for production
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
 
 # Create necessary directories
 os.makedirs("uploads", exist_ok=True)
 
-# In-memory storage for videos
+# In-memory storage for videos (keeping this for now)
 videos_db: Dict[str, dict] = {}
+
+# Database startup
+@app.on_event("startup")
+async def startup_event():
+    create_tables()
+    logger.info("Database tables created/verified")
+
+# Zone data models
+class ZoneCoordinate(BaseModel):
+    x: float
+    y: float
+
+class Zone(BaseModel):
+    id: Optional[str] = None
+    name: str
+    coordinates: List[ZoneCoordinate]
+    priority: int
+    threshold: int
+    min_area: int
+    motion_frames: int
+    color: str
+    created_at: Optional[str] = None
+
+class ZoneUpdate(BaseModel):
+    name: Optional[str] = None
+    coordinates: Optional[List[ZoneCoordinate]] = None
+    priority: Optional[int] = None
+    threshold: Optional[int] = None
+    min_area: Optional[int] = None
+    motion_frames: Optional[int] = None
+    color: Optional[str] = None
 
 @app.get("/")
 async def root():
@@ -62,6 +98,7 @@ async def root():
         "docs": "/docs"
     }
 
+# Video endpoints (keeping existing functionality)
 @app.post("/api/video/upload")
 async def upload_video(file: UploadFile = File(...)):
     """Upload video file for baseline establishment with enhanced validation"""
@@ -240,40 +277,6 @@ async def get_video_first_frame(video_id: str):
         logger.error(f"Error extracting frame: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error extracting frame: {str(e)}")
 
-@app.get("/api/video/{video_id}/metadata")
-async def get_video_metadata_detailed(video_id: str):
-    """Get detailed video metadata - this is what the frontend expects"""
-    logger.info(f"Getting detailed metadata for: {video_id}")
-    
-    if video_id not in videos_db:
-        raise HTTPException(status_code=404, detail="Video not found")
-    
-    video_info = videos_db[video_id]
-    video_path = video_info["path"]
-    
-    if not os.path.exists(video_path):
-        raise HTTPException(status_code=404, detail="Video file not found")
-    
-    try:
-        # Get additional metadata
-        cap = cv2.VideoCapture(video_path)
-        # Get codec information
-        fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
-        codec = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
-        cap.release()
-        
-        duration_seconds = video_info["frame_count"] / video_info["fps"] if video_info["fps"] > 0 else 0
-        
-        return {
-            **video_info,
-            "codec": codec,
-            "duration_seconds": duration_seconds,
-            "duration_formatted": format_duration(duration_seconds)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting metadata: {str(e)}")
-
 @app.get("/api/videos")
 async def list_videos():
     """Get list of all uploaded videos"""
@@ -300,57 +303,10 @@ async def delete_video(video_id: str):
     
     return {"message": f"Video '{video_info['original_name']}' deleted successfully"}
 
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "videos_uploaded": len(videos_db)
-    }
-
-def format_duration(seconds):
-    """Format duration in seconds to MM:SS format"""
-    minutes = int(seconds // 60)
-    seconds = int(seconds % 60)
-    return f"{minutes}:{seconds:02d}"
-
-
-
-
-# Zone data models
-class ZoneCoordinate(BaseModel):
-    x: float
-    y: float
-
-class Zone(BaseModel):
-    id: Optional[str] = None
-    name: str
-    coordinates: List[ZoneCoordinate]
-    priority: int
-    threshold: int
-    min_area: int
-    motion_frames: int
-    color: str
-    created_at: Optional[str] = None
-
-class ZoneUpdate(BaseModel):
-    name: Optional[str] = None
-    coordinates: Optional[List[ZoneCoordinate]] = None
-    priority: Optional[int] = None
-    threshold: Optional[int] = None
-    min_area: Optional[int] = None
-    motion_frames: Optional[int] = None
-    color: Optional[str] = None
-
-# In-memory storage for zones (add to existing storage)
-zones_db: Dict[str, dict] = {}
-
-# Zone management endpoints (add to your existing main.py)
-
+# Updated Zone Endpoints with Database Integration
 @app.post("/api/zones")
-async def create_zone(zone: Zone):
-    """Create a new detection zone"""
+async def create_zone(zone: Zone, db: Session = Depends(get_db)):
+    """Create a new detection zone with database persistence"""
     logger.info(f"Creating zone: {zone.name}")
     
     # Generate ID if not provided
@@ -358,9 +314,9 @@ async def create_zone(zone: Zone):
         zone.id = str(uuid.uuid4())
     
     # Check for duplicate names
-    for existing_zone in zones_db.values():
-        if existing_zone["name"] == zone.name:
-            raise HTTPException(status_code=400, detail="Zone name already exists")
+    existing_zone = db.query(ZoneModel).filter(ZoneModel.name == zone.name).first()
+    if existing_zone:
+        raise HTTPException(status_code=400, detail="Zone name already exists")
     
     # Validate coordinates
     if len(zone.coordinates) < 3:
@@ -370,20 +326,21 @@ async def create_zone(zone: Zone):
     if zone.priority < 1 or zone.priority > 5:
         raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
     
-    # Store zone
-    zone_data = {
-        "id": zone.id,
-        "name": zone.name,
-        "coordinates": [{"x": coord.x, "y": coord.y} for coord in zone.coordinates],
-        "priority": zone.priority,
-        "threshold": zone.threshold,
-        "min_area": zone.min_area,
-        "motion_frames": zone.motion_frames,
-        "color": zone.color,
-        "created_at": datetime.now().isoformat()
-    }
+    # Create database record
+    db_zone = ZoneModel(
+        id=zone.id,
+        name=zone.name,
+        coordinates=json.dumps([{"x": coord.x, "y": coord.y} for coord in zone.coordinates]),
+        priority=zone.priority,
+        threshold=zone.threshold,
+        min_area=zone.min_area,
+        motion_frames=zone.motion_frames,
+        color=zone.color
+    )
     
-    zones_db[zone.id] = zone_data
+    db.add(db_zone)
+    db.commit()
+    db.refresh(db_zone)
     
     logger.info(f"Zone created successfully with ID: {zone.id}")
     return {
@@ -392,72 +349,80 @@ async def create_zone(zone: Zone):
     }
 
 @app.get("/api/zones")
-async def list_zones():
-    """Get list of all zones"""
-    return list(zones_db.values())
+async def list_zones(db: Session = Depends(get_db)):
+    """Get list of all zones from database"""
+    zones = db.query(ZoneModel).all()
+    return [zone.to_dict() for zone in zones]
 
 @app.get("/api/zones/{zone_id}")
-async def get_zone(zone_id: str):
+async def get_zone(zone_id: str, db: Session = Depends(get_db)):
     """Get specific zone by ID"""
-    if zone_id not in zones_db:
+    zone = db.query(ZoneModel).filter(ZoneModel.id == zone_id).first()
+    if not zone:
         raise HTTPException(status_code=404, detail="Zone not found")
-    
-    return zones_db[zone_id]
+    return zone.to_dict()
 
 @app.put("/api/zones/{zone_id}")
-async def update_zone(zone_id: str, zone_update: ZoneUpdate):
+async def update_zone(zone_id: str, zone_update: ZoneUpdate, db: Session = Depends(get_db)):
     """Update existing zone"""
-    if zone_id not in zones_db:
+    zone = db.query(ZoneModel).filter(ZoneModel.id == zone_id).first()
+    if not zone:
         raise HTTPException(status_code=404, detail="Zone not found")
-    
-    zone_data = zones_db[zone_id]
     
     # Update fields if provided
     if zone_update.name is not None:
         # Check for duplicate names (excluding current zone)
-        for existing_id, existing_zone in zones_db.items():
-            if existing_id != zone_id and existing_zone["name"] == zone_update.name:
-                raise HTTPException(status_code=400, detail="Zone name already exists")
-        zone_data["name"] = zone_update.name
+        existing = db.query(ZoneModel).filter(
+            ZoneModel.name == zone_update.name,
+            ZoneModel.id != zone_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Zone name already exists")
+        zone.name = zone_update.name
     
     if zone_update.coordinates is not None:
         if len(zone_update.coordinates) < 3:
             raise HTTPException(status_code=400, detail="Zone must have at least 3 coordinates")
-        zone_data["coordinates"] = [{"x": coord.x, "y": coord.y} for coord in zone_update.coordinates]
+        zone.coordinates = json.dumps([{"x": coord.x, "y": coord.y} for coord in zone_update.coordinates])
     
     if zone_update.priority is not None:
         if zone_update.priority < 1 or zone_update.priority > 5:
             raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
-        zone_data["priority"] = zone_update.priority
+        zone.priority = zone_update.priority
     
     if zone_update.threshold is not None:
-        zone_data["threshold"] = zone_update.threshold
+        zone.threshold = zone_update.threshold
     
     if zone_update.min_area is not None:
-        zone_data["min_area"] = zone_update.min_area
+        zone.min_area = zone_update.min_area
     
     if zone_update.motion_frames is not None:
-        zone_data["motion_frames"] = zone_update.motion_frames
+        zone.motion_frames = zone_update.motion_frames
     
     if zone_update.color is not None:
-        zone_data["color"] = zone_update.color
+        zone.color = zone_update.color
     
-    zone_data["updated_at"] = datetime.now().isoformat()
+    zone.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(zone)
     
     logger.info(f"Zone updated: {zone_id}")
     return {
         "id": zone_id,
-        "message": f"Zone '{zone_data['name']}' updated successfully"
+        "message": f"Zone '{zone.name}' updated successfully"
     }
 
 @app.delete("/api/zones/{zone_id}")
-async def delete_zone(zone_id: str):
+async def delete_zone(zone_id: str, db: Session = Depends(get_db)):
     """Delete zone"""
-    if zone_id not in zones_db:
+    zone = db.query(ZoneModel).filter(ZoneModel.id == zone_id).first()
+    if not zone:
         raise HTTPException(status_code=404, detail="Zone not found")
     
-    zone_name = zones_db[zone_id]["name"]
-    del zones_db[zone_id]
+    zone_name = zone.name
+    db.delete(zone)
+    db.commit()
     
     logger.info(f"Zone deleted: {zone_id}")
     return {
@@ -465,10 +430,11 @@ async def delete_zone(zone_id: str):
     }
 
 @app.get("/api/zones/export")
-async def export_zones():
+async def export_zones(db: Session = Depends(get_db)):
     """Export all zones configuration"""
+    zones = db.query(ZoneModel).all()
     config = {
-        "zones": list(zones_db.values()),
+        "zones": [zone.to_dict() for zone in zones],
         "exported_at": datetime.now().isoformat(),
         "version": "1.0"
     }
@@ -480,11 +446,10 @@ async def export_zones():
     )
 
 @app.post("/api/zones/import")
-async def import_zones(file: UploadFile = File(...)):
+async def import_zones(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Import zones configuration"""
     if not file.filename or not file.filename.endswith('.json'):
         raise HTTPException(status_code=400, detail="File must be a JSON file")
-
     
     try:
         content = await file.read()
@@ -501,11 +466,23 @@ async def import_zones(file: UploadFile = File(...)):
             
             # Generate new ID to avoid conflicts
             zone_id = str(uuid.uuid4())
-            zone_data["id"] = zone_id
-            zone_data["imported_at"] = datetime.now().isoformat()
             
-            zones_db[zone_id] = zone_data
+            # Create database record
+            db_zone = ZoneModel(
+                id=zone_id,
+                name=f"{zone_data['name']}_imported",  # Avoid name conflicts
+                coordinates=json.dumps(zone_data["coordinates"]),
+                priority=zone_data.get("priority", 1),
+                threshold=zone_data.get("threshold", 50),
+                min_area=zone_data.get("min_area", 100),
+                motion_frames=zone_data.get("motion_frames", 3),
+                color=zone_data.get("color", "#FF0000")
+            )
+            
+            db.add(db_zone)
             imported_count += 1
+        
+        db.commit()
         
         return {
             "message": f"Successfully imported {imported_count} zones",
@@ -517,7 +494,6 @@ async def import_zones(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error importing zones: {str(e)}")
 
-# Add zone validation endpoint
 @app.post("/api/zones/validate")
 async def validate_zone_coordinates(coordinates: List[ZoneCoordinate]):
     """Validate zone coordinates"""
@@ -551,6 +527,20 @@ def calculate_perimeter(coordinates: List[ZoneCoordinate]) -> float:
         perimeter += (dx * dx + dy * dy) ** 0.5
     return perimeter
 
+def format_duration(seconds):
+    """Format duration in seconds to MM:SS format"""
+    minutes = int(seconds // 60)
+    seconds = int(seconds % 60)
+    return f"{minutes}:{seconds:02d}"
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "videos_uploaded": len(videos_db)
+    }
 
 if __name__ == "__main__":
     import uvicorn

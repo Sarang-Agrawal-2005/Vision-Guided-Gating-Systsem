@@ -627,7 +627,7 @@ async function displayVideoPreview(videoId, fileName) {
     }
 }
 
-// Initialize zone drawing functionality with guaranteed baseline loading
+// Initialize zone drawing functionality with server sync
 function initZoneDrawing() {
     console.log('🎨 Initializing zone drawing system...');
     const canvas = document.getElementById('zoneCanvas');
@@ -647,18 +647,85 @@ function initZoneDrawing() {
     zoneDrawingSystem.canvas = canvas;
     zoneDrawingSystem.ctx = canvas.getContext('2d');
     
-    // Load zones from storage
-    loadZonesFromStorage();
-    
-    // Setup event listeners
-    setupZoneDrawingEvents();
-    
-    // Force load baseline image
-    setTimeout(() => {
-        forceLoadBaselineImageWithRetry();
-    }, 200);
+    // Load zones with server-first approach
+    initZoneData().then(() => {
+        setupZoneDrawingEvents();
+        setTimeout(() => {
+            forceLoadBaselineImageWithRetry();
+        }, 200);
+    });
     
     console.log('✅ Zone drawing system initialized');
+}
+
+// Enhanced zone loading with server-first approach
+async function initZoneData() {
+    console.log('🚀 Initializing zone data...');
+    
+    // Always try server first
+    const serverZones = await loadZonesFromServer();
+    
+    if (serverZones.length === 0) {
+        // Fallback to local storage only if server has no zones
+        console.log('📱 Checking local storage as fallback...');
+        const savedZones = localStorage.getItem('motionDetectionZones');
+        if (savedZones) {
+            try {
+                const localZones = JSON.parse(savedZones);
+                console.log(`📱 Found ${localZones.length} zones in local storage`);
+                
+                // Validate each zone exists on server
+                const validZones = [];
+                for (const zone of localZones) {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/zones/${zone.id}`);
+                        if (response.ok) {
+                            validZones.push(zone);
+                        } else {
+                            console.log(`🗑️ Removing stale zone: ${zone.name}`);
+                        }
+                    } catch (error) {
+                        console.log(`🗑️ Removing invalid zone: ${zone.name}`);
+                    }
+                }
+                
+                // Update local storage with only valid zones
+                localStorage.setItem('motionDetectionZones', JSON.stringify(validZones));
+                zoneDrawingSystem.zones = validZones;
+                renderZonesList();
+            } catch (error) {
+                console.error('❌ Error parsing local storage zones:', error);
+                localStorage.removeItem('motionDetectionZones');
+                zoneDrawingSystem.zones = [];
+                renderZonesList();
+            }
+        }
+    }
+}
+
+// Enhanced zone loading with server-first approach
+async function loadZonesFromServer() {
+    console.log('🔄 Loading zones from server...');
+    try {
+        const response = await fetch(`${API_BASE}/api/zones`);
+        if (response.ok) {
+            const serverZones = await response.json();
+            console.log(`✅ Loaded ${serverZones.length} zones from server`);
+            
+            // Update local storage with server data (server is source of truth)
+            localStorage.setItem('motionDetectionZones', JSON.stringify(serverZones));
+            zoneDrawingSystem.zones = serverZones;
+            renderZonesList();
+            
+            return serverZones;
+        } else {
+            console.log('❌ Failed to load zones from server');
+            return [];
+        }
+    } catch (error) {
+        console.error('❌ Error loading zones from server:', error);
+        return [];
+    }
 }
 
 // Enhanced baseline image loading with guaranteed retry mechanism
@@ -1105,7 +1172,7 @@ function redrawCanvas() {
     drawCurrentPoints();
 }
 
-// Draw existing zones (similar to Streamlit implementation)
+// Draw existing zones
 function drawExistingZones() {
     const ctx = zoneDrawingSystem.ctx;
     
@@ -1132,7 +1199,7 @@ function drawExistingZones() {
         ctx.fill();
         ctx.stroke();
         
-        // Draw zone label with background (similar to Streamlit)
+        // Draw zone label with background
         const centerX = zone.coordinates.reduce((sum, p) => sum + p.x, 0) / zone.coordinates.length * zoneDrawingSystem.canvasScale;
         const centerY = zone.coordinates.reduce((sum, p) => sum + p.y, 0) / zone.coordinates.length * zoneDrawingSystem.canvasScale;
         
@@ -1155,7 +1222,7 @@ function drawExistingZones() {
     });
 }
 
-// Draw current points being drawn (similar to Streamlit)
+// Draw current points being drawn
 function drawCurrentPoints() {
     const ctx = zoneDrawingSystem.ctx;
     
@@ -1214,7 +1281,7 @@ function drawCurrentPoints() {
     }
 }
 
-/// Handle zone form submission
+// Handle zone form submission
 function handleZoneFormSubmit(event) {
     event.preventDefault();
     
@@ -1245,18 +1312,7 @@ function handleZoneFormSubmit(event) {
     
     // Save zone
     saveZone(newZone);
-    
-    // CRITICAL FIX: Ensure form stays visible after submission
-    setTimeout(() => {
-        const zoneConfigForm = document.getElementById('zoneConfigForm');
-        if (zoneConfigForm) {
-            zoneConfigForm.classList.remove('hidden');
-            zoneConfigForm.style.display = 'block';
-            zoneConfigForm.style.visibility = 'visible';
-        }
-    }, 100);
 }
-
 
 // Save zone to system
 async function saveZone(zone) {
@@ -1278,19 +1334,11 @@ async function saveZone(zone) {
         zoneDrawingSystem.zones.push(zone);
         
         // Save to local storage
-        saveZonesToStorage();
+        localStorage.setItem('motionDetectionZones', JSON.stringify(zoneDrawingSystem.zones));
         
         // Update UI
         renderZonesList();
         finishZoneCreation();
-        
-        // CRITICAL FIX: Ensure form stays visible after zone creation
-        const zoneConfigForm = document.getElementById('zoneConfigForm');
-        if (zoneConfigForm) {
-            zoneConfigForm.classList.remove('hidden');
-            zoneConfigForm.style.display = 'block';
-            zoneConfigForm.style.visibility = 'visible';
-        }
         
         showNotification(`Zone "${zone.name}" created successfully!`, 'success');
         
@@ -1299,7 +1347,6 @@ async function saveZone(zone) {
         showNotification('Failed to save zone. Please try again.', 'error');
     }
 }
-
 
 // Finish zone creation
 function finishZoneCreation() {
@@ -1323,11 +1370,9 @@ function finishZoneCreation() {
     }
     if (countEl) countEl.textContent = 'Points: 0';
     
-    // CRITICAL FIX: Keep form visible and remove hidden class if any
+    // Keep form visible
     if (zoneConfigForm) {
         zoneConfigForm.classList.remove('hidden');
-        zoneConfigForm.style.display = 'block';
-        zoneConfigForm.style.visibility = 'visible';
         
         // Reset form fields but keep form visible
         const zoneForm = document.getElementById('zoneForm');
@@ -1339,10 +1384,7 @@ function finishZoneCreation() {
     zoneDrawingSystem.canvas.classList.remove('drawing');
     
     redrawCanvas();
-    
-    console.log('✅ Zone creation finished - form kept visible');
 }
-
 
 // Cancel zone creation
 function cancelZoneCreation() {
@@ -1436,7 +1478,7 @@ async function deleteZone(zoneId) {
         zoneDrawingSystem.zones = zoneDrawingSystem.zones.filter(zone => zone.id !== zoneId);
         
         // Save to local storage
-        saveZonesToStorage();
+        localStorage.setItem('motionDetectionZones', JSON.stringify(zoneDrawingSystem.zones));
         
         // Update UI
         renderZonesList();
@@ -1500,7 +1542,7 @@ function importZonesConfig(event) {
             
             // Import zones
             zoneDrawingSystem.zones = config.zones;
-            saveZonesToStorage();
+            localStorage.setItem('motionDetectionZones', JSON.stringify(zoneDrawingSystem.zones));
             renderZonesList();
             redrawCanvas();
             
@@ -1514,28 +1556,6 @@ function importZonesConfig(event) {
     
     reader.readAsText(file);
     event.target.value = ''; // Reset file input
-}
-
-// Storage functions
-function saveZonesToStorage() {
-    try {
-        localStorage.setItem('radiguard_zones', JSON.stringify(zoneDrawingSystem.zones));
-    } catch (error) {
-        console.error('Error saving zones to storage:', error);
-    }
-}
-
-function loadZonesFromStorage() {
-    try {
-        const stored = localStorage.getItem('radiguard_zones');
-        if (stored) {
-            zoneDrawingSystem.zones = JSON.parse(stored);
-            renderZonesList();
-        }
-    } catch (error) {
-        console.error('Error loading zones from storage:', error);
-        zoneDrawingSystem.zones = [];
-    }
 }
 
 // Show notifications
@@ -1671,21 +1691,109 @@ if ('performance' in window) {
     });
 }
 
-// Monitor and maintain form visibility
-function ensureFormVisibility() {
-    const zoneConfigForm = document.getElementById('zoneConfigForm');
-    if (zoneConfigForm) {
-        // Remove any hidden classes
-        zoneConfigForm.classList.remove('hidden');
-        
-        // Force visibility styles
-        zoneConfigForm.style.display = 'block';
-        zoneConfigForm.style.visibility = 'visible';
-        zoneConfigForm.style.opacity = '1';
+// Missing function implementations
+function goToUploadTab() {
+    const uploadTabBtn = document.querySelector('[data-tab="upload"]');
+    if (uploadTabBtn) {
+        uploadTabBtn.click();
     }
 }
 
-// Call this function after any zone operation
-function callEnsureFormVisibility() {
-    setTimeout(ensureFormVisibility, 100);
+function watchForBaselineImage() {
+    const baselineFrame = document.getElementById('baselineFrame');
+    
+    if (!baselineFrame) return;
+    
+    // Watch for src changes
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+                console.log('🔄 Baseline image source changed, reloading...');
+                window.currentBaselineUrl = baselineFrame.src;
+                
+                setTimeout(() => {
+                    const zonesTab = document.getElementById('analyze');
+                    if (zonesTab && zonesTab.classList.contains('active')) {
+                        zoneDrawingSystem.retryCount = 0;
+                        forceLoadBaselineImageWithRetry();
+                    }
+                }, 300);
+            }
+        });
+    });
+    
+    observer.observe(baselineFrame, {
+        attributes: true,
+        attributeFilter: ['src']
+    });
+    
+    baselineFrame.addEventListener('load', () => {
+        console.log('🔄 Baseline image loaded event detected');
+        window.currentBaselineUrl = baselineFrame.src;
+        
+        setTimeout(() => {
+            const zonesTab = document.getElementById('analyze');
+            if (zonesTab && zonesTab.classList.contains('active')) {
+                console.log('🎯 On zones tab, loading to canvas...');
+                zoneDrawingSystem.retryCount = 0;
+                forceLoadBaselineImageWithRetry();
+            }
+        }, 100);
+    });
 }
+
+function setupZoneDrawingEvents() {
+    const startDrawingBtn = document.getElementById('startDrawingBtn');
+    const clearPointsBtn = document.getElementById('clearPointsBtn');
+    const undoPointBtn = document.getElementById('undoPointBtn');
+    const zoneForm = document.getElementById('zoneForm');
+    const cancelZoneBtn = document.getElementById('cancelZoneBtn');
+    const exportZonesBtn = document.getElementById('exportZonesBtn');
+    const importZonesBtn = document.getElementById('importZonesBtn');
+    const importZonesInput = document.getElementById('importZonesInput');
+    
+    if (startDrawingBtn) {
+        startDrawingBtn.addEventListener('click', function() {
+            console.log('🎯 Start drawing button clicked');
+            startDrawingZone();
+        });
+    }
+    
+    if (clearPointsBtn) {
+        clearPointsBtn.addEventListener('click', clearCurrentPoints);
+    }
+    
+    if (undoPointBtn) {
+        undoPointBtn.addEventListener('click', undoLastPoint);
+    }
+    
+    if (zoneDrawingSystem.canvas) {
+        zoneDrawingSystem.canvas.addEventListener('click', handleCanvasClick);
+        zoneDrawingSystem.canvas.addEventListener('mousemove', handleCanvasMouseMove);
+        zoneDrawingSystem.canvas.addEventListener('dblclick', handleCanvasDoubleClick);
+    }
+    
+    if (zoneForm) {
+        zoneForm.addEventListener('submit', handleZoneFormSubmit);
+    }
+    
+    if (cancelZoneBtn) {
+        cancelZoneBtn.addEventListener('click', cancelZoneCreation);
+    }
+    
+    if (exportZonesBtn) {
+        exportZonesBtn.addEventListener('click', exportZonesConfig);
+    }
+    
+    if (importZonesBtn) {
+        importZonesBtn.addEventListener('click', () => importZonesInput.click());
+    }
+    
+    if (importZonesInput) {
+        importZonesInput.addEventListener('change', importZonesConfig);
+    }
+    
+    setupRangeInputs();
+}
+
+// Add all other missing functions from the complete main.js I provided earlier

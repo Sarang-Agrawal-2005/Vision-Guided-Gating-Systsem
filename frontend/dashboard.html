@@ -47,14 +47,33 @@
           retina_detect: true
         });
       }
+      
+      // Enhanced tab functionality
       const tabs = document.querySelectorAll(".tab-btn");
-      const sections = document.querySelectorAll(".pipeline-step");
+      const sections = document.querySelectorAll(".tab-panel");
+      
       tabs.forEach(btn => {
         btn.addEventListener("click", () => {
           tabs.forEach(b => b.classList.remove("active"));
           sections.forEach(s => s.classList.remove("active"));
           btn.classList.add("active");
-          document.getElementById(btn.dataset.tab).classList.add("active");
+          
+          const targetTab = btn.dataset.tab;
+          const targetPanel = document.getElementById(targetTab);
+          if (targetPanel) {
+            targetPanel.classList.add("active");
+          }
+          
+          // Special handling for analyze (zones) tab
+          if (targetTab === 'analyze') {
+            console.log('🎯 Switching to zones tab...');
+            // Trigger zone initialization after a small delay
+            setTimeout(() => {
+              if (typeof initZoneDrawing === 'function') {
+                initZoneDrawing();
+              }
+            }, 100);
+          }
         });
       });
     });
@@ -76,7 +95,7 @@
       border: none;
       background: transparent;
       border-radius: var(--radius-md);
-      color: var(--text-secondary); /* make text faded when inactive */
+      color: var(--text-secondary);
       cursor: pointer;
       transition: all var(--transition-fast);
       display: flex;
@@ -109,280 +128,524 @@
       width: 100%;
     }
 
-
     .tab-btn:hover:not(.active) {
       background: rgba(255, 255, 255, 0.1);
       color: var(--text-primary);
     }
 
-    .pipeline-step {
+    .tab-panel {
       display: none;
     }
-    .pipeline-step.active {
+    .tab-panel.active {
       display: block;
     }
 
+    /* Enhanced drawing status styles */
+    .drawing-status {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+    }
 
+    .drawing-status.active {
+      background: rgba(0, 200, 255, 0.2);
+      border: 1px solid rgba(0, 200, 255, 0.3);
+    }
+
+    #drawingStatus {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    #drawingStatus.active {
+      color: var(--primary);
+    }
+
+    #pointsCount {
+      color: var(--text-primary);
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Range value display styles */
+    .range-value {
+      display: inline-block;
+      min-width: 3rem;
+      text-align: center;
+      font-weight: 600;
+      color: var(--primary);
+      background: rgba(0, 200, 255, 0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-sm);
+      margin-left: 0.5rem;
+    }
+
+    /* Zone card enhancements */
+    .zone-card {
+      border: 2px solid transparent;
+      transition: all var(--transition-fast);
+    }
+
+    .zone-card:hover {
+      border-color: var(--zone-color, var(--primary));
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .zone-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .zone-info h4 {
+      margin: 0 0 0.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .priority-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: white;
+    }
+
+    .zone-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn-icon {
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .zone-details {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.25rem 0;
+    }
+
+    .detail-item .label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .detail-item .value {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Empty zones state */
+    .empty-zones {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--text-secondary);
+    }
+
+    .empty-zones i {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      color: var(--text-secondary);
+      opacity: 0.5;
+    }
+
+    .empty-zones p {
+      margin: 0.5rem 0;
+    }
+
+    .empty-zones p:first-of-type {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
   </style>
 
 </head>
 <body style="position: relative; min-height: 100vh; overflow-x: hidden; background-color: var(--background);">
-  <div class="app-container" style="position: realtive; z-index: 1; background-color: transparent;">
+  <div class="app-container" style="position: relative; z-index: 1; background-color: transparent;">
     <nav class="navbar" style="position: relative; z-index: 1000; justify-content: center;">
-  <div class="logo" style="padding: 1.5rem 2rem; text-align: center; position: sticky;">
-    Vision-Guided <span class="highlight">Gating System</span>
-  </div>
-</nav>
+      <div class="logo" style="padding: 1.5rem 2rem; text-align: center; position: sticky;">
+        Vision-Guided <span class="highlight">Gating System</span>
+      </div>
+    </nav>
 
+    <section class="pipeline-section" style="position: sticky; padding-top: 0rem; background-color: transparent;">
+      <nav class="tabbar" style="position: sticky; top: 0%; background: transparent; z-index: 900; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); padding: 1rem 2rem;">
+        <a class="nav-link tab-btn active" data-tab="upload">Establish Baseline</a>
+        <a class="nav-link tab-btn" data-tab="analyze">Configure Zones</a>
+        <a class="nav-link tab-btn" data-tab="preprocess">Control Beam</a>
+      </nav>
 
-<section class="pipeline-section" style="position: sticky; padding-top: 0rem; background-color: transparent;">
-            <nav class="tabbar" style="position: sticky; top: 0%; background: transparent; z-index: 900; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); padding: 1rem 2rem;">
-  <a class="nav-link tab-btn active" data-tab="upload">Establish Baseline</a>
-  <a class="nav-link tab-btn" data-tab="analyze">Setup Zones</a>
-  <a class="nav-link tab-btn" data-tab="preprocess">Control Beam</a>
-</nav>
-
-    <div class="tab-panel active" id="upload">
+      <!-- Upload Tab -->
+      <div class="tab-panel active" id="upload">
         <div class="baseline-container">
-            <div class="step-card">
-                <div class="logo" style="padding: 1.5rem 2rem; text-align: center;">
-                    Upload<span class="highlight"> Test Video</span>
-                </div>
+          <div class="step-card">
+            <div class="logo" style="padding: 1.5rem 2rem; text-align: center;">
+              Upload<span class="highlight"> Test Video</span>
             </div>
-            
-            <!-- Upload Zone -->
-            <div class="upload-zone" id="uploadZone">
-                <div class="upload-content">
-                    <div class="upload-icon">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                    </div>
-                    <h3>Upload Video File</h3>
-                    <p>Drag and drop your video file here or click to browse</p>
-                    <p class="upload-limit">Supported formats: MP4, AVI, MOV (Max: 100MB)</p>
-                </div>
-                <input type="file" id="videoInput" accept="video/*" style="display: none;">
+          </div>
+          
+          <!-- Upload Zone -->
+          <div class="upload-zone" id="uploadZone">
+            <div class="upload-content">
+              <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </div>
+              <h3>Upload Video File</h3>
+              <p>Drag and drop your video file here or click to browse</p>
+              <p class="upload-limit">Supported formats: MP4, AVI, MOV (Max: 100MB)</p>
             </div>
+            <input type="file" id="videoInput" accept="video/*" style="display: none;">
+          </div>
 
-            <!-- Upload Progress -->
-            <div class="upload-progress hidden" id="uploadProgress">
-                <div class="progress-info">
-                    <span id="progressStatus">Uploading...</span>
-                    <span id="progressPercentage">0%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <div class="upload-spinner">
-                    <div class="spinner"></div>
-                    <span>Processing video...</span>
-                </div>
+          <!-- Upload Progress -->
+          <div class="upload-progress hidden" id="uploadProgress">
+            <div class="progress-info">
+              <span id="progressStatus">Uploading...</span>
+              <span id="progressPercentage">0%</span>
             </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="upload-spinner">
+              <div class="spinner"></div>
+              <span>Processing video...</span>
+            </div>
+          </div>
 
-            <!-- Video Preview -->
-            <div class="video-preview hidden" id="videoPreview">
-                <h3>Baseline Frame Preview</h3>
-                <div class="baseline-frame-container">
-                    <div class="frame-display">
-                        <img id="baselineFrame" class="baseline-image" alt="First frame of uploaded video">
-                    </div>
-                    <div class="baseline-info">
-                        <div class="info-item">
-                            <span class="info-label">File Name:</span>
-                            <span class="info-value" id="videoName">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Duration:</span>
-                            <span class="info-value" id="videoDuration">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Resolution:</span>
-                            <span class="info-value" id="videoResolution">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Frame Rate:</span>
-                            <span class="info-value" id="videoFps">-</span>
-                        </div>
-                    </div>
+          <!-- Video Preview -->
+          <div class="video-preview hidden" id="videoPreview">
+            <h3>Baseline Frame Preview</h3>
+            <div class="baseline-frame-container">
+              <div class="frame-display">
+                <img id="baselineFrame" class="baseline-image" alt="First frame of uploaded video">
+              </div>
+              <div class="baseline-info">
+                <div class="info-item">
+                  <span class="info-label">File Name:</span>
+                  <span class="info-value" id="videoName">-</span>
                 </div>
-                <div class="baseline-actions">
-                    <button class="btn btn-outline" id="uploadNewBtn">
-                        <i class="fas fa-upload"></i>
-                        Upload New Video
-                    </button>
-                    <button class="btn btn-primary" id="confirmBaselineBtn">
-                        <i class="fas fa-check"></i>
-                        Confirm Baseline
-                    </button>
+                <div class="info-item">
+                  <span class="info-label">Duration:</span>
+                  <span class="info-value" id="videoDuration">-</span>
                 </div>
+                <div class="info-item">
+                  <span class="info-label">Resolution:</span>
+                  <span class="info-value" id="videoResolution">-</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Frame Rate:</span>
+                  <span class="info-value" id="videoFps">-</span>
+                </div>
+              </div>
             </div>
+            <div class="baseline-actions">
+              <button class="btn btn-outline" id="uploadNewBtn">
+                <i class="fas fa-upload"></i>
+                Upload New Video
+              </button>
+              <button class="btn btn-primary" id="confirmBaselineBtn">
+                <i class="fas fa-check"></i>
+                Confirm Baseline
+              </button>
+            </div>
+          </div>
         </div>
-    </div>
+      </div>
 
-
-
-    <!-- Setup Zones Tab -->
-    <div class="tab-panel" id="analyze">
+      <!-- Setup Zones Tab -->
+      <div class="tab-panel" id="analyze">
         <div class="zones-container">
-            <div class="zones-header">
-                <h2>Setup <span class="highlight">Critical Zones</span></h2>
-                <p>Define motion detection zones on your baseline frame</p>
+          <div class="zones-header">
+            <h2>Setup <span class="highlight">Detection Zones</span></h2>
+            <p>Define motion detection zones on your baseline frame</p>
+          </div>
+
+          <!-- Zone Drawing Canvas -->
+          <div class="canvas-section">
+            <div class="canvas-controls">
+              <div class="drawing-controls">
+                <button class="btn btn-primary" id="startDrawingBtn">
+                  <i class="fas fa-pencil-alt"></i>
+                  Start Drawing Zone
+                </button>
+                <button class="btn btn-outline" id="clearPointsBtn" disabled>
+                  <i class="fas fa-eraser"></i>
+                  Clear Points
+                </button>
+                <button class="btn btn-outline" id="undoPointBtn" disabled>
+                  <i class="fas fa-undo"></i>
+                  Undo Last Point
+                </button>
+              </div>
+              <!-- Enhanced drawing status with proper IDs -->
+              <div class="drawing-status" id="drawingStatusContainer">
+                <span id="drawingStatus">Click "Start Drawing" to begin</span>
+                <span id="pointsCount">Points: 0</span>
+              </div>
             </div>
 
-            <!-- Zone Drawing Canvas -->
-            <div class="canvas-section">
-                <div class="canvas-controls">
-                    <div class="drawing-controls">
-                        <button class="btn btn-primary" id="startDrawingBtn">
-                            <i class="fas fa-pencil-alt"></i>
-                            Start Drawing Zone
-                        </button>
-                        <button class="btn btn-outline" id="clearPointsBtn" disabled>
-                            <i class="fas fa-eraser"></i>
-                            Clear Points
-                        </button>
-                        <button class="btn btn-outline" id="undoPointBtn" disabled>
-                            <i class="fas fa-undo"></i>
-                            Undo Last Point
-                        </button>
-                    </div>
-                    <div class="drawing-status">
-                        <span id="drawingStatus">Click "Start Drawing" to begin</span>
-                        <span id="pointsCount">Points: 0</span>
-                    </div>
+            <div class="canvas-container">
+              <canvas id="zoneCanvas" class="zone-canvas"></canvas>
+              <div class="canvas-overlay" id="canvasOverlay">
+                <div class="drawing-instructions">
+                  <i class="fas fa-mouse-pointer"></i>
+                  <p>Click on the image to add zone boundary points</p>
+                  <p><strong>Tip:</strong> You need at least 3 points to create a zone</p>
                 </div>
-
-                <div class="canvas-container">
-                    <canvas id="zoneCanvas" class="zone-canvas"></canvas>
-                    <div class="canvas-overlay" id="canvasOverlay">
-                        <div class="drawing-instructions">
-                            <i class="fas fa-mouse-pointer"></i>
-                            <p>Click on the image to add zone boundary points</p>
-                            <p><strong>Tip:</strong> You need at least 3 points to create a zone</p>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
+          </div>
 
-            <!-- Zone Configuration Form -->
-            <div class="zone-config-form" id="zoneConfigForm">
-                <div class="form-header">
-                    <h3>Configure Zone</h3>
-                    <p>Set parameters for your new detection zone</p>
-                </div>
-                <form id="zoneForm">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="zoneName">Zone Name</label>
-                            <input type="text" id="zoneName" placeholder="e.g., critical, lung, heart" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="zonePriority">Priority Level</label>
-                            <select id="zonePriority">
-                                <option value="1">1 - Critical (Highest)</option>
-                                <option value="2">2 - High</option>
-                                <option value="3" selected>3 - Medium</option>
-                                <option value="4">4 - Low</option>
-                                <option value="5">5 - Monitoring Only</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="motionThreshold">Motion Threshold</label>
-                            <input type="range" id="motionThreshold" min="10" max="50" value="25">
-                            <span class="range-value" id="thresholdValue">25</span>
-                        </div>
-                        <div class="form-group">
-                            <label for="minArea">Minimum Area (pixels)</label>
-                            <input type="range" id="minArea" min="100" max="2000" value="500" step="50">
-                            <span class="range-value" id="areaValue">500</span>
-                        </div>
-                        <div class="form-group">
-                            <label for="motionFrames">Motion Frames</label>
-                            <input type="range" id="motionFrames" min="1" max="10" value="3">
-                            <span class="range-value" id="framesValue">3</span>
-                        </div>
-                        <div class="form-group">
-                            <label for="zoneColor">Zone Color</label>
-                            <select id="zoneColor">
-                                <option value="#FF0000">Red</option>
-                                <option value="#FF8000">Orange</option>
-                                <option value="#FFFF00">Yellow</option>
-                                <option value="#00FF00">Green</option>
-                                <option value="#0000FF">Blue</option>
-                                <option value="#8000FF">Purple</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" id="cancelZoneBtn">
-                            <i class="fas fa-times"></i>
-                            Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i>
-                            Save Zone
-                        </button>
-                    </div>
-                </form>
+          <!-- Zone Configuration Form -->
+          <div class="zone-config-form" id="zoneConfigForm">
+            <div class="form-header">
+              <h3>Configure Zone</h3>
+              <p>Set parameters for your new detection zone</p>
             </div>
+            <form id="zoneForm">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="zoneName">Zone Name</label>
+                  <input type="text" id="zoneName" placeholder="e.g., critical, lung, heart" required>
+                </div>
+                <div class="form-group">
+                  <label for="zonePriority">Priority Level</label>
+                  <select id="zonePriority">
+                    <option value="1">1 - Critical (Highest)</option>
+                    <option value="2">2 - High</option>
+                    <option value="3" selected>3 - Medium</option>
+                    <option value="4">4 - Low</option>
+                    <option value="5">5 - Monitoring Only</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="motionThreshold">Motion Threshold</label>
+                  <div style="display: flex; align-items: center;">
+                    <input type="range" id="motionThreshold" min="10" max="100" value="50" style="flex: 1;">
+                    <span class="range-value" id="thresholdValue">50</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="minArea">Minimum Area (pixels)</label>
+                  <div style="display: flex; align-items: center;">
+                    <input type="range" id="minArea" min="50" max="1000" value="100" step="25" style="flex: 1;">
+                    <span class="range-value" id="areaValue">100</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="motionFrames">Motion Frames</label>
+                  <div style="display: flex; align-items: center;">
+                    <input type="range" id="motionFrames" min="1" max="10" value="3" style="flex: 1;">
+                    <span class="range-value" id="framesValue">3</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="zoneColor">Zone Color</label>
+                  <select id="zoneColor">
+                    <option value="#FF0000">Red</option>
+                    <option value="#FF8000">Orange</option>
+                    <option value="#FFFF00">Yellow</option>
+                    <option value="#00FF00">Green</option>
+                    <option value="#0000FF">Blue</option>
+                    <option value="#8000FF">Purple</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-outline" id="cancelZoneBtn">
+                  <i class="fas fa-times"></i>
+                  Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i>
+                  Save Zone
+                </button>
+              </div>
+            </form>
+          </div>
 
-            <!-- Existing Zones List -->
-            <div class="zones-list" id="zonesList">
-                <div class="zones-list-header">
-                    <h3>Configured Zones</h3>
-                    <div class="zones-actions">
-                        <button class="btn btn-outline btn-sm" id="exportZonesBtn">
-                            <i class="fas fa-download"></i>
-                            Export Config
-                        </button>
-                        <button class="btn btn-outline btn-sm" id="importZonesBtn">
-                            <i class="fas fa-upload"></i>
-                            Import Config
-                        </button>
-                        <input type="file" id="importZonesInput" accept=".json" style="display: none;">
-                    </div>
-                </div>
-                <div class="zones-grid" id="zonesGrid">
-                    <div class="empty-zones">
-                        <i class="fas fa-draw-polygon"></i>
-                        <p>No zones configured yet</p>
-                        <p>Start by drawing your first detection zone</p>
-                    </div>
-                </div>
+          <!-- Existing Zones List -->
+          <div class="zones-list" id="zonesList">
+            <div class="zones-list-header">
+              <h3>Configured Zones</h3>
+              <div class="zones-actions">
+                <button class="btn btn-outline btn-sm" id="exportZonesBtn">
+                  <i class="fas fa-download"></i>
+                  Export Config
+                </button>
+                <button class="btn btn-outline btn-sm" id="importZonesBtn">
+                  <i class="fas fa-upload"></i>
+                  Import Config
+                </button>
+                <input type="file" id="importZonesInput" accept=".json" style="display: none;">
+              </div>
             </div>
+            <div class="zones-grid" id="zonesGrid">
+              <div class="empty-zones">
+                <i class="fas fa-draw-polygon"></i>
+                <p>No zones configured yet</p>
+                <p>Start by drawing your first detection zone</p>
+              </div>
+            </div>
+          </div>
         </div>
-    </div>
+      </div>
 
-
-      <div id="preprocess" class="pipeline-step">
+      <!-- Control Beam Tab -->
+      <div class="tab-panel" id="preprocess">
         <div class="step-card">
           <div class="logo" style="padding:1.5rem 2rem;text-align:center;">
             Control<span class="highlight"> Radiation Beam</span>
           </div>
         </div>
+        <div class="beam-control-container">
+          <div class="control-panel">
+            <h3>Beam Control Status</h3>
+            <div class="status-grid">
+              <div class="status-item">
+                <div class="status-label">System Status</div>
+                <div class="status-value status-ready">Ready</div>
+              </div>
+              <div class="status-item">
+                <div class="status-label">Active Zones</div>
+                <div class="status-value" id="activeZonesCount">0</div>
+              </div>
+              <div class="status-item">
+                <div class="status-label">Motion Detection</div>
+                <div class="status-value status-monitoring">Monitoring</div>
+              </div>
+              <div class="status-item">
+                <div class="status-label">Beam Status</div>
+                <div class="status-value status-standby">Standby</div>
+              </div>
+            </div>
+            
+            <div class="control-actions">
+              <button class="btn btn-primary" id="startMonitoringBtn">
+                <i class="fas fa-play"></i>
+                Start Monitoring
+              </button>
+              <button class="btn btn-outline" id="stopMonitoringBtn" disabled>
+                <i class="fas fa-stop"></i>
+                Stop Monitoring
+              </button>
+              <button class="btn btn-danger" id="emergencyStopBtn">
+                <i class="fas fa-exclamation-triangle"></i>
+                Emergency Stop
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-
-      </div>
     </section>
   </div>
-<style>
-  html, body {
-  height: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-}
-  .particles-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    pointer-events: none;
-    background: transparent;
-  }
-</style>
+
+  <style>
+    html, body {
+      height: 100%;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    
+    .particles-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+      background: transparent;
+    }
+
+    /* Beam control styles */
+    .beam-control-container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 2rem;
+    }
+
+    .control-panel {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+
+    .status-item {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1rem;
+      border-radius: var(--radius-md);
+      text-align: center;
+    }
+
+    .status-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .status-value {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .status-ready { color: #48bb78; }
+    .status-monitoring { color: #4299e1; }
+    .status-standby { color: #ed8936; }
+
+    .control-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #e53e3e, #c53030);
+      color: white;
+      border: none;
+    }
+
+    .btn-danger:hover {
+      background: linear-gradient(135deg, #c53030, #9c2626);
+    }
+  </style>
 </body>
 </html>
