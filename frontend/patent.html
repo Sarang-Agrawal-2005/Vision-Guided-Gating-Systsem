@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patent Certification - Motion Detection Beam Control System</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="navbar" id="navbar">
+            <div class="nav-container">
+                <div class="logo">
+                    <i class="fas fa-crosshairs"></i>
+                    Vision-Guided Gating System
+                </div>
+                <div class="nav-links" id="navLinks">
+                    <a href="index.html" class="nav-link">Home</a>
+                    <a href="index.html#features" class="nav-link">Features</a>
+                    <a href="index.html#about" class="nav-link">About</a>
+                    <a href="index.html#contact" class="nav-link">Contact</a>
+                </div>
+                <div class="nav-actions">
+                    <a href="dashboard.html" class="btn btn-primary">Launch Prototype</a>
+                </div>
+                <div class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Patent Content -->
+        <main class="patent-main">
+            <div class="patent-container">
+                <!-- Header Section -->
+                <div class="patent-header">
+                    <div class="patent-header-content">
+                        <div class="patent-icon">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <h1>Patent Documentation</h1>
+                        <p class="patent-subtitle">
+                            Granted by the official intellectual property office of the UK government
+                        </p>
+                        <div class="patent-badges">
+                            <span class="badge patent-badge">
+                                <i class="fas fa-shield-alt"></i>
+                                Patent Protected
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PDF Viewer Section -->
+                <div class="pdf-viewer-section">
+                    <div class="pdf-controls">
+                        <div class="pdf-info">
+                            <h3>Certificate of Registration</h3>
+                            <p>Device for Tracking Cancer Patient Movement During Radiotherapy Treatment</p>
+                        </div>
+                    </div>
+                    
+                    <div class="pdf-container">
+                        <iframe 
+                            id="pdfViewer"
+                            src="assets/patent.pdf"
+                            type="application/pdf"
+                            width="100%"
+                            height="800px"
+                            title="Patent Certificate">
+                            <p>Your browser does not support PDFs. 
+                                <a href="assets/patent.pdf" target="_blank">
+                                    Download the PDF
+                                </a>
+                            </p>
+                        </iframe>
+                    </div>
+                </div>
+
+                <!-- Patent Details Section -->
+                <div class="patent-details">
+                    <div class="detail-card">
+                        <div class="detail-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h4>Patent Number</h4>
+                        <p>6423881</p>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <h4>Filing Date</h4>
+                        <p>14 February 2025</p>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h4>Grant Date</h4>
+                        <p>27 February 2025</p>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <h4>Territory</h4>
+                        <p>United Kingdom</p>
+                    </div>
+                </div>
+
+                <!-- Back to Home Button -->
+                <div class="patent-footer">
+                    <a href="index.html" class="btn btn-primary btn-lg" id="backToHomeBtn">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Home
+                    </a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+Migration Strategy
+Phase 1: Set up FastAPI backend with basic endpoints
+
+Phase 2: Implement WebSocket for real-time communication
+
+Phase 3: Migrate video processing to async tasks
+
+Phase 4: Add database persistence
+
+Phase 5: Integrate with your existing frontend
+
+The FastAPI + WebSockets + PostgreSQL combination would be my top recommendation 
+for your radiotherapy application, providing the real-time capabilities, scalability, 
+and reliability required for medical applications while maintaining compatibility with 
+your existing frontend
+
+uvicorn main:app --host 0.0.0.0 --port 8000
+python -m http.server 3000
