@@ -281,6 +281,289 @@
       font-weight: 600;
       color: var(--text-primary);
     }
+
+    /* Beam Control Styles */
+    .beam-control-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      gap: 2rem;
+    }
+
+    .beam-status-section {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-card {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-header h3 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .beam-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.active {
+      background: #10b981;
+    }
+
+    .status-text {
+      font-weight: 600;
+      color: #ef4444;
+    }
+
+    .status-text.active {
+      color: #10b981;
+    }
+
+    .control-buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .status-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .status-item .label {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .status-item .value {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .beam-main-area {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+    }
+
+    .video-monitor, .zone-status-panel {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .monitor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .monitor-header h3 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .video-container {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: var(--radius-md);
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .video-placeholder {
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .video-placeholder i {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .video-placeholder p {
+      margin: 0.5rem 0;
+    }
+
+    .video-placeholder small {
+      font-size: 0.8rem;
+      opacity: 0.7;
+    }
+
+    .zone-status-panel h3 {
+      margin: 0 0 1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .zones-status-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .zone-status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-sm);
+    }
+
+    .zone-info .zone-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .zone-info small {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    .zone-status {
+      padding: 0.25rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .zone-status.clear {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+    }
+
+    .zone-status.motion {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .no-zones-message {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-secondary);
+    }
+
+    .no-zones-message i {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .beam-events-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .live-status, .events-log {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .live-status h3, .events-log h3 {
+      margin: 0 0 1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .events-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .events-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .no-events {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 2rem;
+      font-style: italic;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .beam-main-area {
+        grid-template-columns: 1fr;
+      }
+      
+      .beam-events-section {
+        grid-template-columns: 1fr;
+      }
+      
+      .control-buttons {
+        justify-content: center;
+      }
+      
+      .status-info {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 
 </head>
@@ -296,7 +579,7 @@
       <nav class="tabbar" style="position: sticky; top: 0%; background: transparent; z-index: 900; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); padding: 1rem 2rem;">
         <a class="nav-link tab-btn active" data-tab="upload">Establish Baseline</a>
         <a class="nav-link tab-btn" data-tab="analyze">Configure Zones</a>
-        <a class="nav-link tab-btn" data-tab="preprocess">Control Beam</a>
+        <a class="nav-link tab-btn" data-tab="control">Control Beam</a>
       </nav>
 
       <!-- Upload Tab -->
@@ -515,50 +798,124 @@
         </div>
       </div>
 
-      <!-- Control Beam Tab -->
-      <div class="tab-panel" id="preprocess">
-        <div class="step-card">
-          <div class="logo" style="padding:1.5rem 2rem;text-align:center;">
-            Control<span class="highlight"> Radiation Beam</span>
-          </div>
-        </div>
+      <!-- BEAM CONTROL TAB - CORRECTED -->
+      <div id="control" class="tab-panel">
         <div class="beam-control-container">
-          <div class="control-panel">
-            <h3>Beam Control Status</h3>
-            <div class="status-grid">
-              <div class="status-item">
-                <div class="status-label">System Status</div>
-                <div class="status-value status-ready">Ready</div>
-              </div>
-              <div class="status-item">
-                <div class="status-label">Active Zones</div>
-                <div class="status-value" id="activeZonesCount">0</div>
-              </div>
-              <div class="status-item">
-                <div class="status-label">Motion Detection</div>
-                <div class="status-value status-monitoring">Monitoring</div>
-              </div>
-              <div class="status-item">
-                <div class="status-label">Beam Status</div>
-                <div class="status-value status-standby">Standby</div>
-              </div>
+            <!-- Beam Status Section -->
+            <div class="beam-status-section">
+                <div class="status-card">
+                    <div class="status-header">
+                        <h3><i class="fas fa-radiation"></i> Beam Status</h3>
+                        <div class="beam-indicator" id="beamIndicator">
+                            <span class="status-dot" id="statusDot"></span>
+                            <span class="status-text" id="statusText">STOPPED</span>
+                        </div>
+                    </div>
+                    
+                    <!-- CORRECTED CONTROL BUTTONS -->
+                    <div class="control-buttons">
+                        <button id="startMonitoringBtn" class="btn btn-primary">
+                            <i class="fas fa-play"></i>
+                            Start Monitoring
+                        </button>
+                        <button id="stopMonitoringBtn" class="btn btn-outline" style="display: none;">
+                            <i class="fas fa-stop"></i>
+                            Stop Monitoring
+                        </button>
+                        <button id="emergencyStopBtn" class="btn" style="background: #ef4444; color: white;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Emergency Stop
+                        </button>
+                    </div>
+                    
+                    <div class="status-info">
+                        <div class="status-item">
+                            <span class="label">Current Zone:</span>
+                            <span class="value" id="currentZone">None</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Active Zones:</span>
+                            <span class="value" id="activeZones">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Last Event:</span>
+                            <span class="value" id="lastEvent">None</span>
+                        </div>
+                    </div>            
+                </div>
             </div>
-            
-            <div class="control-actions">
-              <button class="btn btn-primary" id="startMonitoringBtn">
-                <i class="fas fa-play"></i>
-                Start Monitoring
-              </button>
-              <button class="btn btn-outline" id="stopMonitoringBtn" disabled>
-                <i class="fas fa-stop"></i>
-                Stop Monitoring
-              </button>
-              <button class="btn btn-danger" id="emergencyStopBtn">
-                <i class="fas fa-exclamation-triangle"></i>
-                Emergency Stop
-              </button>
+
+            <!-- Main Control Area -->
+            <div class="beam-main-area">
+                <!-- Video Monitor -->
+                <div class="video-monitor">
+                    <div class="monitor-header">
+                        <h3><i class="fas fa-video"></i> Live Video Monitor</h3>
+                        <div class="monitor-controls">
+                            <button class="btn btn-sm" id="processVideoBtn">
+                                <i class="fas fa-cog"></i> Process Video with Zones
+                            </button>
+                        </div>
+                    </div>
+                    <div class="video-container" id="videoContainer">
+                        <div class="video-placeholder" id="videoPlaceholder">
+                            <i class="fas fa-video-slash"></i>
+                            <p>No video loaded</p>
+                            <small>Upload a video and configure zones first</small>
+                        </div>
+                        <video id="processedVideo" controls style="display: none; width: 100%; max-height: 400px;"></video>
+                    </div>
+                </div>
+
+                <!-- Zone Status Panel -->
+                <div class="zone-status-panel">
+                    <h3><i class="fas fa-crosshairs"></i> Zone Status</h3>
+                    <div class="zones-status-list" id="zonesStatusList">
+                        <div class="no-zones-message">
+                            <i class="fas fa-info-circle"></i>
+                            <p>No zones configured</p>
+                            <small>Go to Zone Setup to create detection zones</small>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
+
+            <!-- Live Status and Events -->
+            <div class="beam-events-section">
+                <div class="live-status">
+                    <h3><i class="fas fa-heartbeat"></i> Live Status</h3>
+                    <div class="status-grid" id="liveStatusGrid">
+                        <div class="status-item">
+                            <span class="label">Detection Active:</span>
+                            <span class="value" id="detectionStatus">No</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Zones Clear:</span>
+                            <span class="value" id="zonesClearStatus">Unknown</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Beam Active:</span>
+                            <span class="value" id="beamActiveStatus">No</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Last Event:</span>
+                            <span class="value" id="lastEventTime">Never</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="events-log">
+                    <div class="events-header">
+                        <h3><i class="fas fa-list"></i> Recent Events</h3>
+                        <button class="btn btn-sm" id="clearEventsBtn">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                    <div class="events-list" id="eventsList">
+                        <div class="no-events">No events recorded</div>
+                    </div>
+                </div>
+            </div>
         </div>
       </div>
 
@@ -583,68 +940,6 @@
       z-index: -1;
       pointer-events: none;
       background: transparent;
-    }
-
-    /* Beam control styles */
-    .beam-control-container {
-      max-width: 800px;
-      margin: 2rem auto;
-      padding: 2rem;
-    }
-
-    .control-panel {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: var(--radius-lg);
-      padding: 2rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .status-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin: 2rem 0;
-    }
-
-    .status-item {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 1rem;
-      border-radius: var(--radius-md);
-      text-align: center;
-    }
-
-    .status-label {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.5rem;
-    }
-
-    .status-value {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .status-ready { color: #48bb78; }
-    .status-monitoring { color: #4299e1; }
-    .status-standby { color: #ed8936; }
-
-    .control-actions {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-top: 2rem;
-    }
-
-    .btn-danger {
-      background: linear-gradient(135deg, #e53e3e, #c53030);
-      color: white;
-      border: none;
-    }
-
-    .btn-danger:hover {
-      background: linear-gradient(135deg, #c53030, #9c2626);
     }
   </style>
 </body>

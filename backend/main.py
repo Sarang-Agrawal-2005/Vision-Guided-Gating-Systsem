@@ -18,6 +18,13 @@ import io
 import logging
 import json
 
+import cv2
+import asyncio
+from fastapi.responses import StreamingResponse
+import threading
+import queue
+import time
+
 # Add these imports to your existing main.py
 from pydantic import BaseModel
 
@@ -51,7 +58,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
-
 
 # Create necessary directories
 os.makedirs("uploads", exist_ok=True)
@@ -89,6 +95,41 @@ class ZoneUpdate(BaseModel):
     min_area: Optional[int] = None
     motion_frames: Optional[int] = None
     color: Optional[str] = None
+
+# Add these new models to your existing main.py
+class BeamControlRequest(BaseModel):
+    action: str  # "start", "stop", "emergency_stop"
+    zones: Optional[List[str]] = None
+
+class MotionDetectionResult(BaseModel):
+    video_id: str
+    zones_with_motion: List[str]
+    timestamp: str
+    beam_should_stop: bool
+
+class BeamStatus(BaseModel):
+    is_active: bool
+    detection_active: bool
+    last_event: Optional[str] = None
+    zones_clear: bool
+
+# Global beam control state
+beam_control_state = {
+    "is_active": False,
+    "detection_active": False,
+    "last_event": None,
+    "zones_clear": True,
+    "events": []
+}
+
+# Global video streaming state
+video_streaming_state = {
+    "active": False,
+    "current_video_id": None,
+    "zones": [],
+    "frame_queue": queue.Queue(maxsize=30),
+    "stop_event": threading.Event()
+}
 
 @app.get("/")
 async def root():
@@ -541,6 +582,424 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
         "videos_uploaded": len(videos_db)
     }
+
+# Beam Control Endpoints
+@app.post("/api/beam/control")
+async def control_beam(request: BeamControlRequest):
+    """Control radiation beam based on motion detection"""
+    global beam_control_state
+    
+    if request.action == "start":
+        beam_control_state["is_active"] = True
+        beam_control_state["detection_active"] = True
+        beam_control_state["last_event"] = "BEAM_STARTED"
+        beam_control_state["events"].append({
+            "timestamp": datetime.now().isoformat(),
+            "action": "STARTED",
+            "message": "Motion detection started. Beam active."
+        })
+        logger.info("Beam control started")
+        
+    elif request.action == "stop":
+        beam_control_state["is_active"] = False
+        beam_control_state["detection_active"] = False
+        beam_control_state["last_event"] = "BEAM_STOPPED"
+        beam_control_state["events"].append({
+            "timestamp": datetime.now().isoformat(),
+            "action": "STOPPED",
+            "message": "Motion detection stopped by user."
+        })
+        logger.info("Beam control stopped")
+        
+    elif request.action == "emergency_stop":
+        beam_control_state["is_active"] = False
+        beam_control_state["detection_active"] = False
+        beam_control_state["last_event"] = "EMERGENCY_STOP"
+        beam_control_state["events"].append({
+            "timestamp": datetime.now().isoformat(),
+            "action": "EMERGENCY_STOP",
+            "message": "EMERGENCY STOP activated!"
+        })
+        logger.warning("Emergency stop activated")
+    
+    return {"status": "success", "beam_state": beam_control_state}
+
+@app.get("/api/beam/status")
+async def get_beam_status():
+    """Get current beam control status"""
+    return BeamStatus(
+        is_active=beam_control_state["is_active"],
+        detection_active=beam_control_state["detection_active"],
+        last_event=beam_control_state["last_event"],
+        zones_clear=beam_control_state["zones_clear"]
+    )
+
+@app.post("/api/beam/motion-detected")
+async def handle_motion_detection(result: MotionDetectionResult):
+    """Handle motion detection results and control beam accordingly"""
+    global beam_control_state
+    
+    if not beam_control_state["detection_active"]:
+        return {"message": "Detection not active"}
+    
+    if result.zones_with_motion:
+        # Motion detected - stop beam
+        if beam_control_state["is_active"]:
+            beam_control_state["is_active"] = False
+            beam_control_state["zones_clear"] = False
+            beam_control_state["last_event"] = "MOTION_DETECTED"
+            
+            event = {
+                "timestamp": datetime.now().isoformat(),
+                "action": "BEAM_STOPPED",
+                "message": f"Motion detected in zones: {', '.join(result.zones_with_motion)}. BEAM STOPPED.",
+                "zones": result.zones_with_motion
+            }
+            beam_control_state["events"].append(event)
+            logger.warning(f"Motion detected, beam stopped: {result.zones_with_motion}")
+    else:
+        # No motion - resume beam if detection is active
+        if not beam_control_state["is_active"] and beam_control_state["detection_active"]:
+            beam_control_state["is_active"] = True
+            beam_control_state["zones_clear"] = True
+            beam_control_state["last_event"] = "ZONES_CLEAR"
+            
+            event = {
+                "timestamp": datetime.now().isoformat(),
+                "action": "BEAM_RESUMED",
+                "message": "All zones clear. BEAM RESUMED."
+            }
+            beam_control_state["events"].append(event)
+            logger.info("Zones clear, beam resumed")
+    
+    return {"status": "processed", "beam_active": beam_control_state["is_active"]}
+
+@app.get("/api/beam/events")
+async def get_beam_events(limit: int = 10):
+    """Get recent beam control events"""
+    events = beam_control_state["events"][-limit:]
+    return {"events": events}
+
+@app.delete("/api/beam/events")
+async def clear_beam_events():
+    """Clear beam control events log"""
+    beam_control_state["events"] = []
+    return {"message": "Events cleared"}
+
+@app.post("/api/video/{video_id}/process-with-zones")
+async def process_video_with_zones(video_id: str, db: Session = Depends(get_db)):
+    """Process video with zone overlays for beam control monitoring"""
+    if video_id not in videos_db:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    # Get zones from database
+    zones = db.query(ZoneModel).all()
+    if not zones:
+        raise HTTPException(status_code=400, detail="No zones configured")
+    
+    video_info = videos_db[video_id]
+    input_path = video_info["path"]
+    output_path = f"uploads/processed_{video_id}.mp4"
+    
+    try:
+        # This would be your video processing logic
+        # For now, just return success
+        logger.info(f"Processing video {video_id} with {len(zones)} zones")
+        
+        return {
+            "status": "success",
+            "processed_video_path": output_path,
+            "zones_applied": len(zones),
+            "message": "Video processed with zone overlays"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing video: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
+
+# Video Streaming Endpoints
+@app.get("/api/video/{video_id}/stream")
+async def stream_video_with_zones(video_id: str, db: Session = Depends(get_db)):
+    """Stream video with zone overlays for beam control monitoring"""
+    if video_id not in videos_db:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    # Get zones from database
+    zones = db.query(ZoneModel).all()
+    video_info = videos_db[video_id]
+    
+    # Update streaming state
+    video_streaming_state["current_video_id"] = video_id
+    video_streaming_state["zones"] = [zone.to_dict() for zone in zones]
+    video_streaming_state["active"] = True
+    video_streaming_state["stop_event"].clear()
+    
+    # Start video processing in background thread
+    threading.Thread(
+        target=process_video_with_zones_background,
+        args=(video_info["path"], zones),
+        daemon=True
+    ).start()
+    
+    return StreamingResponse(
+        generate_video_stream(),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
+
+def process_video_with_zones_background(video_path: str, zones):
+    """Background thread to process video frames with zone overlays"""
+    cap = cv2.VideoCapture(video_path)
+    
+    if not cap.isOpened():
+        logger.error(f"Could not open video: {video_path}")
+        return
+    
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_delay = 1.0 / fps if fps > 0 else 1.0 / 30
+    
+    try:
+        while video_streaming_state["active"] and not video_streaming_state["stop_event"].is_set():
+            ret, frame = cap.read()
+            if not ret:
+                # Loop video
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
+            
+            # Draw zones on frame
+            annotated_frame = draw_zones_on_frame(frame, video_streaming_state["zones"])
+            
+            # Encode frame
+            _, buffer = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            
+            # Add to queue (non-blocking)
+            try:
+                video_streaming_state["frame_queue"].put(buffer.tobytes(), block=False)
+            except queue.Full:
+                # Skip frame if queue is full
+                pass
+            
+            time.sleep(frame_delay)
+            
+    except Exception as e:
+        logger.error(f"Error in video processing: {e}")
+    finally:
+        cap.release()
+
+def draw_zones_on_frame(frame, zones):
+    """Draw zone overlays on video frame"""
+    annotated_frame = frame.copy()
+    
+    for zone in zones:
+        try:
+            # Parse coordinates
+            coordinates = zone["coordinates"]
+            if len(coordinates) < 3:
+                continue
+            
+            # Convert to numpy array for OpenCV
+            points = np.array([[int(coord["x"]), int(coord["y"])] for coord in coordinates], np.int32)
+            
+            # Parse color (hex to BGR)
+            color_hex = zone["color"].lstrip('#')
+            color_rgb = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+            color_bgr = (color_rgb[2], color_rgb[1], color_rgb[0])  # Convert RGB to BGR
+            
+            # Draw zone boundary
+            cv2.polylines(annotated_frame, [points], True, color_bgr, 3)
+            
+            # Draw semi-transparent fill - FIXED
+            overlay = annotated_frame.copy()
+            cv2.fillPoly(overlay, [points], color_bgr)  # Fixed: wrap points in list
+            cv2.addWeighted(annotated_frame, 0.7, overlay, 0.3, 0, annotated_frame)
+            
+            # Add zone label
+            if len(coordinates) > 0:
+                label_pos = (int(coordinates[0]["x"]), int(coordinates[0]["y"]) - 10)
+                cv2.putText(annotated_frame, zone["name"], label_pos, 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, color_bgr, 2)
+                
+                # Add priority badge
+                priority_text = f"P{zone['priority']}"
+                priority_pos = (int(coordinates[0]["x"]), int(coordinates[0]["y"]) + 25)
+                cv2.putText(annotated_frame, priority_text, priority_pos,
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                
+        except Exception as e:
+            logger.error(f"Error drawing zone {zone.get('name', 'unknown')}: {e}")
+            continue
+    
+    return annotated_frame
+
+async def generate_video_stream():
+    """Generate video stream with zone overlays"""
+    while video_streaming_state["active"]:
+        try:
+            # Get frame from queue with timeout
+            frame_data = video_streaming_state["frame_queue"].get(timeout=1.0)
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+        except queue.Empty:
+            # Send empty frame to keep connection alive
+            continue
+        except Exception as e:
+            logger.error(f"Error in video stream: {e}")
+            break
+
+@app.post("/api/video/stream/stop")
+async def stop_video_stream():
+    """Stop video streaming"""
+    video_streaming_state["active"] = False
+    video_streaming_state["stop_event"].set()
+    
+    # Clear the queue
+    while not video_streaming_state["frame_queue"].empty():
+        try:
+            video_streaming_state["frame_queue"].get_nowait()
+        except queue.Empty:
+            break
+    
+    return {"message": "Video stream stopped"}
+
+@app.get("/api/video/stream/status")
+async def get_stream_status():
+    """Get current streaming status"""
+    return {
+        "active": video_streaming_state["active"],
+        "video_id": video_streaming_state["current_video_id"],
+        "zones_count": len(video_streaming_state["zones"])
+    }
+
+@app.post("/api/beam/start-monitoring")
+async def start_beam_monitoring(video_id: str, db: Session = Depends(get_db)):
+    """Start beam monitoring with motion detection"""
+    if not video_id or video_id not in videos_db:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    zones = db.query(ZoneModel).all()
+    if not zones:
+        raise HTTPException(status_code=400, detail="No zones configured")
+    
+    # Start video streaming with motion detection
+    video_info = videos_db[video_id]
+    
+    # Update beam control state
+    beam_control_state["detection_active"] = True
+    beam_control_state["is_active"] = True
+    beam_control_state["last_event"] = "MONITORING_STARTED"
+    
+    # Start motion detection in background
+    threading.Thread(
+        target=motion_detection_background,
+        args=(video_info["path"], zones),
+        daemon=True
+    ).start()
+    
+    return {
+        "status": "success",
+        "message": "Beam monitoring started with motion detection",
+        "zones_count": len(zones)
+    }
+
+
+def motion_detection_background(video_path: str, zones):
+    """Background motion detection with zone monitoring"""
+    cap = cv2.VideoCapture(video_path)
+    
+    if not cap.isOpened():
+        return
+    
+    # Initialize background subtractor
+    backSub = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+    
+    try:
+        while beam_control_state["detection_active"]:
+            ret, frame = cap.read()
+            if not ret:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
+            
+            # Apply background subtraction
+            fgMask = backSub.apply(frame)
+            
+            # Check motion in each zone
+            zones_with_motion = []
+            
+            for zone in zones:
+                zone_dict = zone.to_dict()
+                if detect_motion_in_zone(fgMask, zone_dict):
+                    zones_with_motion.append(zone_dict["name"])
+            
+            # Update beam control based on motion
+            if zones_with_motion:
+                if beam_control_state["is_active"]:
+                    beam_control_state["is_active"] = False
+                    beam_control_state["zones_clear"] = False
+                    beam_control_state["last_event"] = "MOTION_DETECTED"
+                    
+                    event = {
+                        "timestamp": datetime.now().isoformat(),
+                        "action": "BEAM_STOPPED",
+                        "message": f"Motion detected in zones: {', '.join(zones_with_motion)}",
+                        "zones": zones_with_motion
+                    }
+                    beam_control_state["events"].append(event)
+            else:
+                if not beam_control_state["is_active"] and beam_control_state["detection_active"]:
+                    beam_control_state["is_active"] = True
+                    beam_control_state["zones_clear"] = True
+                    beam_control_state["last_event"] = "ZONES_CLEAR"
+                    
+                    event = {
+                        "timestamp": datetime.now().isoformat(),
+                        "action": "BEAM_RESUMED",
+                        "message": "All zones clear. Beam resumed."
+                    }
+                    beam_control_state["events"].append(event)
+            
+            time.sleep(0.1)  # 10 FPS motion detection
+            
+    except Exception as e:
+        logger.error(f"Motion detection error: {e}")
+    finally:
+        cap.release()
+
+def detect_motion_in_zone(fg_mask: np.ndarray, zone: dict) -> bool:
+    """Detect motion within a specific polygonal zone"""
+    try:
+        coordinates = zone.get("coordinates", [])
+        if len(coordinates) < 3:
+            return False
+
+        # Format points as required by OpenCV (N, 1, 2)
+        points = np.array(
+            [[int(coord["x"]), int(coord["y"])] for coord in coordinates],
+            dtype=np.int32
+        ).reshape((-1, 1, 2))  # Shape = (N, 1, 2)
+
+        # Create blank mask
+        zone_mask: np.ndarray = np.zeros_like(fg_mask, dtype=np.uint8)
+
+        # Fill polygon with 255 (white)
+        cv2.fillPoly(zone_mask, [points], 255)  # type: ignore
+
+        # Apply mask to motion
+        zone_motion = cv2.bitwise_and(fg_mask, zone_mask)
+
+        # Count non-zero (motion) pixels
+        motion_pixels = cv2.countNonZero(zone_motion)
+        motion_area = cv2.countNonZero(zone_mask)
+
+        if motion_area == 0:
+            return False
+
+        motion_percentage = (motion_pixels / motion_area) * 100
+        threshold = zone.get("threshold", 5)
+
+        return motion_percentage > threshold
+
+    except Exception as e:
+        logger.error(f"Error detecting motion in zone '{zone.get('name', 'unknown')}': {e}")
+        return False
 
 if __name__ == "__main__":
     import uvicorn

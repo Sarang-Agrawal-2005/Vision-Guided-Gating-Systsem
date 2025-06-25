@@ -16,6 +16,23 @@ let zoneDrawingSystem = {
     maxRetries: 5
 };
 
+// Video streaming functionality
+let videoStreamActive = false;
+let currentVideoId = null;
+
+// Beam Control System
+let beamControlSystem = {
+    isDetectionActive: false,
+    isBeamActive: false,
+    events: [],
+    simulationInterval: null,
+    zones: [],
+    processedVideoPath: null
+};
+
+// Status polling interval
+let statusPollingInterval = null;
+
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🌟 DOM Content Loaded - Starting initialization...');
@@ -273,9 +290,46 @@ function initDashboardFeatures() {
     
     // Initialize enhanced video upload functionality
     initEnhancedVideoUpload();
+
+    // Initialize beam control features
+    initBeamControlFeatures();
     
     console.log('✅ Enhanced dashboard features initialized');
 }
+
+function initBeamControlFeatures() {
+    console.log('🎯 Setting up beam control features...');
+    
+    // Initialize beam control when the control tab is clicked
+    const controlTab = document.querySelector('[data-tab="control"]');
+    if (controlTab) {
+        controlTab.addEventListener('click', function() {
+            console.log('🎯 Control tab clicked, initializing beam control...');
+            setTimeout(() => {
+                initBeamControl();
+            }, 100);
+        });
+    }
+    
+    // IMPORTANT: Also initialize immediately if already on control tab
+    const controlPanel = document.getElementById('control');
+    if (controlPanel && controlPanel.classList.contains('active')) {
+        console.log('🎯 Already on control tab, initializing beam control immediately...');
+        setTimeout(() => {
+            initBeamControl();
+        }, 100);
+    }
+    
+    // Force initialization after a delay to ensure DOM is ready
+    setTimeout(() => {
+        const currentTab = document.querySelector('.tab-panel.active');
+        if (currentTab && currentTab.id === 'control') {
+            console.log('🎯 Force initializing beam control...');
+            initBeamControl();
+        }
+    }, 500);
+}
+
 
 // Enhanced tab switching with proper zone initialization
 function initDashboardTabs() {
@@ -297,7 +351,7 @@ function initDashboardTabs() {
                 targetPanel.classList.add('active');
             }
             
-            // Special handling for analyze (zones) tab
+            // Special handling for different tabs
             if (targetTab === 'analyze') {
                 console.log('🎯 Switching to zones tab...');
                 // Reset retry count when switching to zones tab
@@ -305,6 +359,11 @@ function initDashboardTabs() {
                 // Small delay to ensure DOM is ready
                 setTimeout(() => {
                     initZoneDrawing();
+                }, 100);
+            } else if (targetTab === 'control') {
+                console.log('⚡ Switching to beam control tab...');
+                setTimeout(() => {
+                    initBeamControl();
                 }, 100);
             }
         });
@@ -547,6 +606,9 @@ function initEnhancedVideoUpload() {
 // Enhanced video preview display function with guaranteed canvas loading
 async function displayVideoPreview(videoId, fileName) {
     console.log('🎬 Displaying video preview for:', videoId, fileName);
+    
+    // Store video ID globally - CRITICAL FIX
+    window.currentVideoId = videoId;
     
     try {
         // Get video metadata
@@ -1558,6 +1620,436 @@ function importZonesConfig(event) {
     event.target.value = ''; // Reset file input
 }
 
+function initBeamControl() {
+    console.log('🎯 Initializing beam control features...');
+    
+    // Force attach listeners
+    setTimeout(() => {
+        window.forceAttachBeamControlListeners();
+    }, 100);
+    
+    // Initialize video streaming
+    initVideoStreaming();
+    
+    // Initialize beam control buttons
+    initBeamControlButtons();
+    
+    // Load zones for monitoring
+    loadZonesForBeamControl();
+    
+    // Update UI
+    updateBeamControlUI();
+    
+    console.log('✅ Beam control system initialized');
+}
+
+
+function initVideoStreaming() {
+    const startMonitoringBtn = document.getElementById('startMonitoringBtn');
+    const stopMonitoringBtn = document.getElementById('stopMonitoringBtn');
+    
+    console.log('🎬 Video streaming buttons:', {
+        startBtn: !!startMonitoringBtn,
+        stopBtn: !!stopMonitoringBtn
+    });
+    
+    if (startMonitoringBtn) {
+        // Remove any existing listeners first
+        startMonitoringBtn.removeEventListener('click', startVideoStreaming);
+        
+        startMonitoringBtn.addEventListener('click', async (event) => {
+            console.log('🚀 Start Monitoring button clicked - Event triggered!');
+            event.preventDefault();
+            
+            // Disable button to prevent double clicks
+            startMonitoringBtn.disabled = true;
+            
+            try {
+                await startVideoStreaming();
+            } catch (error) {
+                console.error('❌ Error in button click handler:', error);
+            } finally {
+                // Re-enable button after 2 seconds
+                setTimeout(() => {
+                    startMonitoringBtn.disabled = false;
+                }, 2000);
+            }
+        });
+        
+        console.log('✅ Start monitoring button listener attached');
+    } else {
+        console.error('❌ Start monitoring button not found in DOM');
+    }
+    
+    if (stopMonitoringBtn) {
+        stopMonitoringBtn.addEventListener('click', async (event) => {
+            console.log('🛑 Stop Monitoring button clicked');
+            event.preventDefault();
+            await stopVideoStreaming();
+        });
+    }
+}
+
+function initBeamControlButtons() {
+    const emergencyStopBtn = document.getElementById('emergencyStopBtn');
+    
+    if (emergencyStopBtn) {
+        emergencyStopBtn.addEventListener('click', async () => {
+            console.log('🚨 Emergency Stop button clicked');
+            await emergencyStop();
+        });
+    }
+}
+
+async function startVideoStreaming() {
+    try {
+        console.log('🚀 Starting video streaming...');
+        
+        // Get current video ID from uploaded video
+        const videoId = getCurrentVideoId();
+        console.log('📹 Video ID:', videoId);
+        
+        if (!videoId) {
+            console.log('❌ No video ID found');
+            showNotification('Please upload a video first', 'error');
+            return;
+        }
+        
+        // Start beam monitoring - FIXED API CALL
+        console.log('🎯 Starting beam monitoring...');
+        const monitoringResponse = await fetch(`${API_BASE}/api/beam/start-monitoring?video_id=${videoId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('📡 Monitoring response status:', monitoringResponse.status);
+        
+        if (!monitoringResponse.ok) {
+            const errorText = await monitoringResponse.text();
+            console.error('❌ Monitoring failed:', errorText);
+            throw new Error('Failed to start monitoring: ' + errorText);
+        }
+        
+        const monitoringResult = await monitoringResponse.json();
+        console.log('✅ Monitoring started:', monitoringResult);
+        
+        // Start video stream
+        const streamUrl = `${API_BASE}/api/video/${videoId}/stream`;
+        console.log('🔗 Stream URL:', streamUrl);
+        console.log('🎬 Showing video stream...');
+        
+        showVideoStream(streamUrl);
+        
+        videoStreamActive = true;
+        currentVideoId = videoId;
+        
+        // Update UI
+        updateVideoStreamUI(true);
+        
+        // Start status polling
+        startStatusPolling();
+        
+        console.log('✅ Video streaming started successfully');
+        showNotification('Video monitoring started successfully', 'success');
+        
+    } catch (error) {
+        console.error('❌ Error starting video stream:', error);
+        showNotification('Failed to start video monitoring: ' + error.message, 'error');
+    }
+}
+
+async function stopVideoStreaming() {
+    try {
+        console.log('🛑 Stopping video streaming...');
+        
+        // Stop video stream
+        await fetch(`${API_BASE}/api/video/stream/stop`, {
+            method: 'POST'
+        });
+        
+        // Stop beam control
+        await fetch(`${API_BASE}/api/beam/control`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'stop'
+            })
+        });
+        
+        hideVideoStream();
+        
+        videoStreamActive = false;
+        currentVideoId = null;
+        
+        // Update UI
+        updateVideoStreamUI(false);
+        
+        // Stop status polling
+        stopStatusPolling();
+        
+        showNotification('Video monitoring stopped', 'info');
+        
+    } catch (error) {
+        console.error('Error stopping video stream:', error);
+        showNotification('Failed to stop video monitoring', 'error');
+    }
+}
+
+async function emergencyStop() {
+    try {
+        console.log('🚨 Emergency stop activated');
+        
+        // Emergency stop beam control
+        await fetch(`${API_BASE}/api/beam/control`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'emergency_stop'
+            })
+        });
+        
+        // Stop video stream
+        await fetch(`${API_BASE}/api/video/stream/stop`, {
+            method: 'POST'
+        });
+        
+        hideVideoStream();
+        
+        videoStreamActive = false;
+        currentVideoId = null;
+        
+        // Update UI
+        updateVideoStreamUI(false);
+        
+        // Stop status polling
+        stopStatusPolling();
+        
+        showNotification('EMERGENCY STOP ACTIVATED', 'error');
+        
+    } catch (error) {
+        console.error('Error in emergency stop:', error);
+        showNotification('Emergency stop failed', 'error');
+    }
+}
+
+function initBeamControlButtons() {
+    const emergencyStopBtn = document.getElementById('emergencyStopBtn');
+    
+    if (emergencyStopBtn) {
+        emergencyStopBtn.addEventListener('click', async () => {
+            console.log('🚨 Emergency Stop button clicked');
+            await emergencyStop();
+        });
+    }
+}
+
+function showVideoStream(streamUrl) {
+    const videoContainer = document.querySelector('.video-container');
+    const videoPlaceholder = document.querySelector('.video-placeholder');
+    
+    console.log('🎬 Video container found:', !!videoContainer);
+    console.log('🎬 Video placeholder found:', !!videoPlaceholder);
+    
+    if (videoContainer && videoPlaceholder) {
+        // Replace placeholder with video stream
+        videoPlaceholder.innerHTML = `
+            <div class="video-stream-container">
+                <img id="videoStream" src="${streamUrl}" alt="Live Video Stream" style="
+                    width: 100%;
+                    height: auto;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                " onload="console.log('✅ Video stream image loaded')" 
+                   onerror="console.error('❌ Video stream image failed to load')">
+                <div class="stream-overlay">
+                    <div class="stream-status">
+                        <i class="fas fa-circle" style="color: #10b981; animation: pulse 2s infinite;"></i>
+                        <span>LIVE MONITORING</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        console.log('✅ Video stream HTML updated');
+    } else {
+        console.error('❌ Video container or placeholder not found');
+    }
+}
+
+function hideVideoStream() {
+    const videoPlaceholder = document.querySelector('.video-placeholder');
+    
+    if (videoPlaceholder) {
+        videoPlaceholder.innerHTML = `
+            <i class="fas fa-video-slash"></i>
+            <p>No video loaded</p>
+            <p>Upload a video and configure zones first</p>
+        `;
+        console.log('✅ Video stream hidden');
+    }
+}
+
+function updateVideoStreamUI(isActive) {
+    const startBtn = document.getElementById('startMonitoringBtn');
+    const stopBtn = document.getElementById('stopMonitoringBtn');
+    
+    console.log('🔄 Updating UI - Active:', isActive);
+    console.log('🔄 Start button found:', !!startBtn);
+    console.log('🔄 Stop button found:', !!stopBtn);
+    
+    if (startBtn && stopBtn) {
+        if (isActive) {
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-flex';
+        } else {
+            startBtn.style.display = 'inline-flex';
+            stopBtn.style.display = 'none';
+        }
+        console.log('✅ UI updated successfully');
+    }
+}
+
+function getCurrentVideoId() {
+    // Check multiple sources for video ID
+    if (window.currentVideoId) {
+        return window.currentVideoId;
+    }
+    
+    // Fallback: try to extract from video info if available
+    const videoName = document.getElementById('videoName');
+    if (videoName && videoName.textContent) {
+        // Video is loaded, but ID not stored - this shouldn't happen
+        console.warn('Video loaded but ID not stored');
+    }
+    
+    return null;
+}
+
+// Status polling for real-time updates
+function startStatusPolling() {
+    if (statusPollingInterval) {
+        clearInterval(statusPollingInterval);
+    }
+    
+    statusPollingInterval = setInterval(async () => {
+        if (videoStreamActive) {
+            await updateBeamStatus();
+            await updateZoneStatus();
+        }
+    }, 1000); // Poll every second
+}
+
+function stopStatusPolling() {
+    if (statusPollingInterval) {
+        clearInterval(statusPollingInterval);
+        statusPollingInterval = null;
+    }
+}
+
+async function updateBeamStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/api/beam/status`);
+        if (response.ok) {
+            const status = await response.json();
+            updateBeamStatusUI(status);
+        }
+    } catch (error) {
+        console.error('Error updating beam status:', error);
+    }
+}
+
+async function updateZoneStatus() {
+    // Placeholder for zone status updates
+    // You can implement this based on your needs
+}
+
+function updateBeamStatusUI(status) {
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
+    
+    if (statusDot && statusText) {
+        if (status.is_active) {
+            statusDot.classList.add('active');
+            statusText.classList.add('active');
+            statusText.textContent = 'BEAM ACTIVE';
+        } else {
+            statusDot.classList.remove('active');
+            statusText.classList.remove('active');
+            statusText.textContent = 'BEAM STOPPED';
+        }
+    }
+}
+
+// Load zones for beam control monitoring
+async function loadZonesForBeamControl() {
+    try {
+        const response = await fetch(`${API_BASE}/api/zones`);
+        if (response.ok) {
+            const zones = await response.json();
+            updateZoneStatusDisplay(zones);
+        }
+    } catch (error) {
+        console.error('Error loading zones for beam control:', error);
+    }
+}
+
+function updateZoneStatusDisplay(zones) {
+    const zonesList = document.getElementById('zonesStatusList');
+    if (!zonesList) return;
+    
+    if (!zones || zones.length === 0) {
+        zonesList.innerHTML = `
+            <div class="no-zones-message">
+                <i class="fas fa-info-circle"></i>
+                <p>No zones configured</p>
+                <small>Go to Zone Setup to create detection zones</small>
+            </div>
+        `;
+        return;
+    }
+    
+    zonesList.innerHTML = zones.map(zone => `
+        <div class="zone-status-item clear">
+            <div class="zone-info">
+                <div class="zone-name">${zone.name}</div>
+                <small>Priority ${zone.priority}</small>
+            </div>
+            <div class="zone-status clear">Clear</div>
+        </div>
+    `).join('');
+}
+
+function updateBeamControlUI() {
+    // Update beam status indicator
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const startBtn = document.getElementById('startMonitoringBtn');
+    const stopBtn = document.getElementById('stopMonitoringBtn');
+    
+    if (statusDot && statusText) {
+        if (videoStreamActive) {
+            statusDot.classList.add('active');
+            statusText.textContent = 'ACTIVE';
+            statusText.classList.add('active');
+        } else {
+            statusDot.classList.remove('active');
+            statusText.textContent = 'STOPPED';
+            statusText.classList.remove('active');
+        }
+    }
+    
+    // Update buttons
+    if (startBtn && stopBtn) {
+        startBtn.disabled = videoStreamActive;
+        stopBtn.disabled = !videoStreamActive;
+    }
+}
+
 // Show notifications
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
@@ -1691,109 +2183,84 @@ if ('performance' in window) {
     });
 }
 
-// Missing function implementations
-function goToUploadTab() {
-    const uploadTabBtn = document.querySelector('[data-tab="upload"]');
-    if (uploadTabBtn) {
-        uploadTabBtn.click();
+// Global debug function
+window.debugBeamControl = function() {
+    console.log('=== BEAM CONTROL DEBUG INFO ===');
+    console.log('Current video ID:', getCurrentVideoId());
+    console.log('Video streaming active:', videoStreamActive);
+    console.log('Current video ID (global):', window.currentVideoId);
+    console.log('API Base:', API_BASE);
+    
+    const videoId = getCurrentVideoId();
+    if (videoId) {
+        const streamUrl = `${API_BASE}/api/video/${videoId}/stream`;
+        console.log('Constructed stream URL:', streamUrl);
+    } else {
+        console.log('❌ No video ID available to construct stream URL');
     }
-}
+    
+    // Check if elements exist
+    console.log('Start button exists:', !!document.getElementById('startMonitoringBtn'));
+    console.log('Stop button exists:', !!document.getElementById('stopMonitoringBtn'));
+    console.log('Video container exists:', !!document.querySelector('.video-container'));
+    
+    return {
+        videoId: getCurrentVideoId(),
+        streamActive: videoStreamActive,
+        apiBase: API_BASE
+    };
+};
 
-function watchForBaselineImage() {
-    const baselineFrame = document.getElementById('baselineFrame');
+// Add this function to your main.js
+window.forceAttachBeamControlListeners = function() {
+    console.log('🔧 Manually attaching beam control listeners...');
     
-    if (!baselineFrame) return;
+    const startBtn = document.getElementById('startMonitoringBtn');
+    const stopBtn = document.getElementById('stopMonitoringBtn');
+    const emergencyBtn = document.getElementById('emergencyStopBtn');
     
-    // Watch for src changes
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
-                console.log('🔄 Baseline image source changed, reloading...');
-                window.currentBaselineUrl = baselineFrame.src;
-                
-                setTimeout(() => {
-                    const zonesTab = document.getElementById('analyze');
-                    if (zonesTab && zonesTab.classList.contains('active')) {
-                        zoneDrawingSystem.retryCount = 0;
-                        forceLoadBaselineImageWithRetry();
-                    }
-                }, 300);
-            }
-        });
+    console.log('🔍 Button elements found:', {
+        startBtn: !!startBtn,
+        stopBtn: !!stopBtn,
+        emergencyBtn: !!emergencyBtn
     });
     
-    observer.observe(baselineFrame, {
-        attributes: true,
-        attributeFilter: ['src']
-    });
-    
-    baselineFrame.addEventListener('load', () => {
-        console.log('🔄 Baseline image loaded event detected');
-        window.currentBaselineUrl = baselineFrame.src;
+    if (startBtn) {
+        // Remove any existing listeners
+        startBtn.removeEventListener('click', startVideoStreaming);
         
-        setTimeout(() => {
-            const zonesTab = document.getElementById('analyze');
-            if (zonesTab && zonesTab.classList.contains('active')) {
-                console.log('🎯 On zones tab, loading to canvas...');
-                zoneDrawingSystem.retryCount = 0;
-                forceLoadBaselineImageWithRetry();
+        // Add new listener with detailed logging
+        startBtn.addEventListener('click', async function(event) {
+            console.log('🚀 START MONITORING CLICKED! Event fired!');
+            event.preventDefault();
+            
+            try {
+                await startVideoStreaming();
+            } catch (error) {
+                console.error('❌ Error in start monitoring:', error);
             }
-        }, 100);
-    });
-}
-
-function setupZoneDrawingEvents() {
-    const startDrawingBtn = document.getElementById('startDrawingBtn');
-    const clearPointsBtn = document.getElementById('clearPointsBtn');
-    const undoPointBtn = document.getElementById('undoPointBtn');
-    const zoneForm = document.getElementById('zoneForm');
-    const cancelZoneBtn = document.getElementById('cancelZoneBtn');
-    const exportZonesBtn = document.getElementById('exportZonesBtn');
-    const importZonesBtn = document.getElementById('importZonesBtn');
-    const importZonesInput = document.getElementById('importZonesInput');
-    
-    if (startDrawingBtn) {
-        startDrawingBtn.addEventListener('click', function() {
-            console.log('🎯 Start drawing button clicked');
-            startDrawingZone();
         });
+        
+        console.log('✅ Start monitoring listener attached');
+    } else {
+        console.error('❌ Start monitoring button not found');
     }
     
-    if (clearPointsBtn) {
-        clearPointsBtn.addEventListener('click', clearCurrentPoints);
+    if (stopBtn) {
+        stopBtn.addEventListener('click', async function(event) {
+            console.log('🛑 STOP MONITORING CLICKED!');
+            event.preventDefault();
+            await stopVideoStreaming();
+        });
+        console.log('✅ Stop monitoring listener attached');
     }
     
-    if (undoPointBtn) {
-        undoPointBtn.addEventListener('click', undoLastPoint);
+    if (emergencyBtn) {
+        emergencyBtn.addEventListener('click', async function(event) {
+            console.log('🚨 EMERGENCY STOP CLICKED!');
+            event.preventDefault();
+            await emergencyStop();
+        });
+        console.log('✅ Emergency stop listener attached');
     }
-    
-    if (zoneDrawingSystem.canvas) {
-        zoneDrawingSystem.canvas.addEventListener('click', handleCanvasClick);
-        zoneDrawingSystem.canvas.addEventListener('mousemove', handleCanvasMouseMove);
-        zoneDrawingSystem.canvas.addEventListener('dblclick', handleCanvasDoubleClick);
-    }
-    
-    if (zoneForm) {
-        zoneForm.addEventListener('submit', handleZoneFormSubmit);
-    }
-    
-    if (cancelZoneBtn) {
-        cancelZoneBtn.addEventListener('click', cancelZoneCreation);
-    }
-    
-    if (exportZonesBtn) {
-        exportZonesBtn.addEventListener('click', exportZonesConfig);
-    }
-    
-    if (importZonesBtn) {
-        importZonesBtn.addEventListener('click', () => importZonesInput.click());
-    }
-    
-    if (importZonesInput) {
-        importZonesInput.addEventListener('change', importZonesConfig);
-    }
-    
-    setupRangeInputs();
-}
-
-// Add all other missing functions from the complete main.js I provided earlier
+};
