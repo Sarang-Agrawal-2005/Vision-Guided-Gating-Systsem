@@ -15,4 +15,4 @@ and reliability required for medical applications while maintaining compatibilit
 your existing frontend
 
 uvicorn main:app --host 0.0.0.0 --port 8000
-python -m http.server 3000
+python -m http.server 2000

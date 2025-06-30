@@ -1,0 +1,32 @@
+{
+    "zones": {
+        "critical": {
+            "coordinates": [
+                [
+                    301,
+                    55
+                ],
+                [
+                    650,
+                    67
+                ],
+                [
+                    668,
+                    315
+                ],
+                [
+                    443,
+                    395
+                ],
+                [
+                    290,
+                    221
+                ]
+            ],
+            "threshold": 25,
+            "min_area": 500,
+            "motion_frames": 3,
+            "priority": 1
+        }
+    }
+}
