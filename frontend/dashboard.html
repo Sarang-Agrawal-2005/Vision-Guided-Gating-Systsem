@@ -564,6 +564,50 @@
         grid-template-columns: 1fr;
       }
     }
+    .motion-detection-container {
+    margin-top: 1rem;
+    background: #1e293b;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    color: white;
+}
+
+.motion-detection-container h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+}
+
+#dashcamVideo,
+#motionCanvas {
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    border-radius: 8px;
+    margin: 0.5rem auto;
+    display: block;
+    border: 2px solid #334155;
+}
+
+#motionCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+#motionStatus {
+    margin-top: 0.75rem;
+    font-size: 1rem;
+    color: #facc15;
+}
+
+.status-text {
+    font-weight: bold;
+}
+
   </style>
 
 </head>
@@ -582,82 +626,89 @@
         <a class="nav-link tab-btn" data-tab="control">Control Beam</a>
       </nav>
 
-      <!-- Upload Tab -->
-      <div class="tab-panel active" id="upload">
-        <div class="baseline-container">
-          <div class="step-card">
-            <div class="logo" style="padding: 1.5rem 2rem; text-align: center;">
-              Upload<span class="highlight"> Test Video</span>
-            </div>
-          </div>
-          
-          <!-- Upload Zone -->
-          <div class="upload-zone" id="uploadZone">
-            <div class="upload-content">
-              <div class="upload-icon">
-                <i class="fas fa-cloud-upload-alt"></i>
-              </div>
-              <h3>Upload Video File</h3>
-              <p>Drag and drop your video file here or click to browse</p>
-              <p class="upload-limit">Supported formats: MP4, AVI, MOV (Max: 100MB)</p>
-            </div>
-            <input type="file" id="videoInput" accept="video/*" style="display: none;">
-          </div>
+<!-- Upload Tab -->
+<div class="tab-panel active" id="upload">
+  <div class="baseline-container">
+    <div class="step-card">
+      <div class="logo" style="padding: 1.5rem 2rem; text-align: center;">
+        Establish <span class="highlight">Baseline Frame</span>
+      </div>
+    </div>
 
-          <!-- Upload Progress -->
-          <div class="upload-progress hidden" id="uploadProgress">
-            <div class="progress-info">
-              <span id="progressStatus">Uploading...</span>
-              <span id="progressPercentage">0%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="upload-spinner">
-              <div class="spinner"></div>
-              <span>Processing video...</span>
-            </div>
-          </div>
+    <!-- Upload Controls -->
+    <div class="upload-options" style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+      <button class="btn btn-outline" id="uploadVideoBtn"><i class="fas fa-video"></i> Upload Video</button>
+      <button class="btn btn-outline" id="uploadImageBtn"><i class="fas fa-image"></i> Upload Image</button>
+      <button class="btn btn-outline" id="openCameraBtn"><i class="fas fa-camera"></i> Use Webcam</button>
+    </div>
 
-          <!-- Video Preview -->
-          <div class="video-preview hidden" id="videoPreview">
-            <h3>Baseline Frame Preview</h3>
-            <div class="baseline-frame-container">
-              <div class="frame-display">
-                <img id="baselineFrame" class="baseline-image" alt="First frame of uploaded video">
-              </div>
-              <div class="baseline-info">
-                <div class="info-item">
-                  <span class="info-label">File Name:</span>
-                  <span class="info-value" id="videoName">-</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Duration:</span>
-                  <span class="info-value" id="videoDuration">-</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Resolution:</span>
-                  <span class="info-value" id="videoResolution">-</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Frame Rate:</span>
-                  <span class="info-value" id="videoFps">-</span>
-                </div>
-              </div>
-            </div>
-            <div class="baseline-actions">
-              <button class="btn btn-outline" id="uploadNewBtn">
-                <i class="fas fa-upload"></i>
-                Upload New Video
-              </button>
-              <button class="btn btn-primary" id="confirmBaselineBtn">
-                <i class="fas fa-check"></i>
-                Confirm Baseline
-              </button>
-            </div>
+    <!-- Hidden File Inputs -->
+    <input type="file" id="videoInput" accept="video/*" style="display: none;">
+    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+
+    <!-- Webcam Capture Section -->
+    <div id="webcamContainer" class="hidden" style="text-align: center; margin-bottom: 1rem;">
+      <video id="webcamPreview" autoplay playsinline style="max-width: 100%; border-radius: 12px;"></video>
+      <br>
+      <button class="btn btn-primary" id="captureBtn" style="margin-top: 0.5rem;">
+        <i class="fas fa-camera"></i> Capture Frame
+      </button>
+    </div>
+    <canvas id="webcamCanvas" class="hidden"></canvas>
+
+    <!-- Upload Progress -->
+    <div class="upload-progress hidden" id="uploadProgress">
+      <div class="progress-info">
+        <span id="progressStatus">Uploading...</span>
+        <span id="progressPercentage">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="upload-spinner">
+        <div class="spinner"></div>
+        <span>Processing video...</span>
+      </div>
+    </div>
+
+    <!-- Baseline Preview -->
+    <div class="video-preview hidden" id="videoPreview">
+      <h3>Baseline Frame Preview</h3>
+      <div class="baseline-frame-container">
+        <div class="frame-display">
+          <img id="baselineFrame" class="baseline-image" alt="Baseline frame">
+        </div>
+        <div class="baseline-info">
+          <div class="info-item">
+            <span class="info-label">File Name:</span>
+            <span class="info-value" id="videoName">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Duration:</span>
+            <span class="info-value" id="videoDuration">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Resolution:</span>
+            <span class="info-value" id="videoResolution">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Frame Rate:</span>
+            <span class="info-value" id="videoFps">-</span>
           </div>
         </div>
       </div>
+      <div class="baseline-actions">
+        <button class="btn btn-outline" id="uploadNewBtn">
+          <i class="fas fa-upload"></i> Upload New
+        </button>
+        <button class="btn btn-primary" id="confirmBaselineBtn">
+          <i class="fas fa-check"></i> Confirm Baseline
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
       <!-- Setup Zones Tab -->
       <div class="tab-panel" id="analyze">
@@ -800,6 +851,16 @@
 
       <!-- BEAM CONTROL TAB - CORRECTED -->
       <div id="control" class="tab-panel">
+        <!-- Webcam Motion Detection Panel -->
+          <div id="motionDetectionPanel" class="motion-detection-container">
+              <h3>Live Motion Detection from Webcam</h3>
+              <div style="position: relative; display: inline-block;">
+                  <video id="dashcamVideo" autoplay muted playsinline></video>
+                  <canvas id="motionCanvas"></canvas>
+              </div>
+              <p id="motionStatus">Status: <span class="status-text">Waiting for motion...</span></p>
+          </div>
+
         <div class="beam-control-container">
             <!-- Beam Status Section -->
             <div class="beam-status-section">

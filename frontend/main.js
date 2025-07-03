@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Fix for baseline image loading
         fixBaselineImageLoading();
     }, 100);
+    initUploadButtons();   // New upload buttons initialization
     
     console.log('🎉 All initialization complete');
 });
@@ -1620,26 +1621,49 @@ function importZonesConfig(event) {
     event.target.value = ''; // Reset file input
 }
 
+// function initBeamControl() {
+//     console.log('🎯 Initializing beam control features...');
+    
+//     // Force attach listeners
+//     setTimeout(() => {
+//         window.forceAttachBeamControlListeners();
+//     }, 100);
+    
+//     // Initialize video streaming
+//     initVideoStreaming();
+    
+//     // Initialize beam control buttons
+//     initBeamControlButtons();
+    
+//     // Load zones for monitoring
+//     loadZonesForBeamControl();
+    
+//     // Update UI
+//     updateBeamControlUI();
+
+//     initMotionFromDashcam(); // New Line
+//     stopDashcamMotionDetection(); // New Line
+
+    
+//     console.log('✅ Beam control system initialized');
+// }
 function initBeamControl() {
     console.log('🎯 Initializing beam control features...');
-    
-    // Force attach listeners
+
+    // Attach beam control listeners
     setTimeout(() => {
-        window.forceAttachBeamControlListeners();
+        window.forceAttachBeamControlListeners?.();
     }, 100);
-    
-    // Initialize video streaming
+
+    // Initialize buttons
     initVideoStreaming();
-    
-    // Initialize beam control buttons
     initBeamControlButtons();
-    
-    // Load zones for monitoring
     loadZonesForBeamControl();
-    
-    // Update UI
     updateBeamControlUI();
-    
+
+    // Initialize webcam motion detection
+    initWebcamMotionDetection(); // ✅ Replace with webcam version
+
     console.log('✅ Beam control system initialized');
 }
 
@@ -2264,3 +2288,262 @@ window.forceAttachBeamControlListeners = function() {
         console.log('✅ Emergency stop listener attached');
     }
 };
+// === Webcam / Image / Video Upload Setup ===
+function initUploadButtons() {
+    const uploadVideoBtn = document.getElementById('uploadVideoBtn');
+    const uploadImageBtn = document.getElementById('uploadImageBtn');
+    const openCameraBtn = document.getElementById('openCameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const videoInput = document.getElementById('videoInput');
+    const imageInput = document.getElementById('imageInput');
+    const webcamPreview = document.getElementById('webcamPreview');
+    const webcamCanvas = document.getElementById('webcamCanvas');
+    const webcamContainer = document.getElementById('webcamContainer');
+    const baselineFrame = document.getElementById('baselineFrame');
+    const videoPreview = document.getElementById('videoPreview');
+    const videoName = document.getElementById('videoName');
+    const videoDuration = document.getElementById('videoDuration');
+    const videoResolution = document.getElementById('videoResolution');
+    const videoFps = document.getElementById('videoFps');
+
+    let webcamStream = null;
+
+    uploadVideoBtn?.addEventListener('click', () => videoInput?.click());
+    uploadImageBtn?.addEventListener('click', () => imageInput?.click());
+    openCameraBtn?.addEventListener('click', () => {
+        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+            webcamPreview.srcObject = stream;
+            webcamStream = stream;
+            webcamContainer.classList.remove('hidden');
+        }).catch(err => {
+            console.error('Webcam error:', err);
+            alert('Failed to access camera');
+        });
+    });
+
+    captureBtn?.addEventListener('click', () => {
+        const context = webcamCanvas.getContext('2d');
+        webcamCanvas.width = webcamPreview.videoWidth;
+        webcamCanvas.height = webcamPreview.videoHeight;
+        context.drawImage(webcamPreview, 0, 0);
+        const dataUrl = webcamCanvas.toDataURL('image/png');
+        baselineFrame.src = dataUrl;
+        if (videoPreview) videoPreview.classList.remove('hidden');
+
+        // Info for UI
+        videoName.textContent = 'Captured Image';
+        videoDuration.textContent = '-';
+        videoResolution.textContent = `${webcamPreview.videoWidth} x ${webcamPreview.videoHeight}`;
+        videoFps.textContent = '-';
+
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(track => track.stop());
+            webcamContainer.classList.add('hidden');
+        }
+    });
+
+    videoInput?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(file);
+        video.preload = 'metadata';
+
+        video.onloadedmetadata = () => {
+            videoName.textContent = file.name;
+            videoDuration.textContent = `${video.duration.toFixed(2)} sec`;
+            videoResolution.textContent = `${video.videoWidth} x ${video.videoHeight}`;
+            videoFps.textContent = '30 fps'; // Approximation
+
+            video.currentTime = 0.1;
+            video.onseeked = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                baselineFrame.src = canvas.toDataURL('image/png');
+                if (videoPreview) videoPreview.classList.remove('hidden');
+            };
+        };
+    });
+
+    imageInput?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            baselineFrame.src = reader.result;
+            if (videoPreview) videoPreview.classList.remove('hidden');
+            videoName.textContent = file.name;
+            videoDuration.textContent = '-';
+            videoResolution.textContent = '-';
+            videoFps.textContent = '-';
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+let dashcamStream = null;
+let dashcamVideo = null;
+let dashcamCanvas = null;
+let dashcamCtx = null;
+let prevFrameData = null;
+let motionDetectionInterval = null;
+
+function initMotionFromDashcam() {
+    const dashcamContainer = document.getElementById('dashcamContainer');
+    dashcamVideo = document.getElementById('dashcamVideo');
+    dashcamCanvas = document.createElement('canvas');
+    dashcamCtx = dashcamCanvas.getContext('2d');
+
+    if (!dashcamVideo || !dashcamContainer) {
+        console.warn("Dashcam video element or container missing");
+        return;
+    }
+
+    // Start webcam stream
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then((stream) => {
+            dashcamStream = stream;
+            dashcamVideo.srcObject = stream;
+            dashcamVideo.play();
+
+            // Start motion detection loop
+            startMotionDetectionLoop();
+        })
+        .catch((err) => {
+            console.error("Dashcam access failed:", err);
+        });
+}
+
+function startMotionDetectionLoop() {
+    if (!dashcamVideo) return;
+
+    motionDetectionInterval = setInterval(() => {
+        const width = dashcamVideo.videoWidth;
+        const height = dashcamVideo.videoHeight;
+
+        if (width === 0 || height === 0) return;
+
+        dashcamCanvas.width = width;
+        dashcamCanvas.height = height;
+
+        dashcamCtx.drawImage(dashcamVideo, 0, 0, width, height);
+        const frameData = dashcamCtx.getImageData(0, 0, width, height);
+
+        if (prevFrameData) {
+            const diff = calculateFrameDifference(prevFrameData.data, frameData.data);
+            if (diff > 15) {
+                console.log("🚨 Motion detected! Frame difference:", diff);
+                triggerBeamOn();
+            } else {
+                triggerBeamOff();
+            }
+        }
+
+        prevFrameData = frameData;
+    }, 200); // Check every 200ms
+}
+
+function calculateFrameDifference(data1, data2) {
+    let diff = 0;
+    for (let i = 0; i < data1.length; i += 4) {
+        const avg1 = (data1[i] + data1[i+1] + data1[i+2]) / 3;
+        const avg2 = (data2[i] + data2[i+1] + data2[i+2]) / 3;
+        diff += Math.abs(avg1 - avg2);
+    }
+    return diff / (data1.length / 4);
+}
+
+function triggerBeamOn() {
+    const beamStatus = document.getElementById('beamStatus');
+    if (beamStatus) {
+        beamStatus.textContent = 'Beam ON (Motion)';
+        beamStatus.classList.add('active');
+    }
+    // You can add server API trigger here if needed
+}
+
+function triggerBeamOff() {
+    const beamStatus = document.getElementById('beamStatus');
+    if (beamStatus) {
+        beamStatus.textContent = 'Beam OFF';
+        beamStatus.classList.remove('active');
+    }
+}
+
+function stopDashcamMotionDetection() {
+    if (motionDetectionInterval) {
+        clearInterval(motionDetectionInterval);
+        motionDetectionInterval = null;
+    }
+
+    if (dashcamStream) {
+        dashcamStream.getTracks().forEach(track => track.stop());
+        dashcamStream = null;
+    }
+
+    dashcamVideo?.pause();
+    prevFrameData = null;
+}
+
+function initWebcamMotionDetection() {
+    const video = document.getElementById('dashcamVideo');
+    const canvas = document.getElementById('motionCanvas');
+    const ctx = canvas.getContext('2d');
+    const motionStatus = document.querySelector('#motionStatus .status-text');
+
+    let previousFrame = null;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('❌ getUserMedia not supported');
+        motionStatus.textContent = 'Camera not supported.';
+        motionStatus.style.color = 'red';
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                video.play();
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                detectMotion();
+            };
+        })
+        .catch(err => {
+            console.error('🚫 Webcam error:', err);
+            motionStatus.textContent = 'Camera access denied.';
+            motionStatus.style.color = 'red';
+        });
+
+    function detectMotion() {
+        requestAnimationFrame(detectMotion);
+
+        if (video.readyState !== 4) return;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        if (previousFrame) {
+            let motionDetected = false;
+
+            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                const avgCurrent = (currentFrame.data[i] + currentFrame.data[i + 1] + currentFrame.data[i + 2]) / 3;
+                const avgPrevious = (previousFrame.data[i] + previousFrame.data[i + 1] + previousFrame.data[i + 2]) / 3;
+
+                if (Math.abs(avgCurrent - avgPrevious) > 25) {
+                    motionDetected = true;
+                    break;
+                }
+            }
+
+            motionStatus.textContent = motionDetected ? 'Motion Detected!' : 'Waiting for motion...';
+            motionStatus.style.color = motionDetected ? 'lime' : 'orange';
+        }
+
+        previousFrame = currentFrame;
+    }
+}
