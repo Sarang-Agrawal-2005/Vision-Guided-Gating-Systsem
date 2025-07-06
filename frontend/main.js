@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initSmoothScrolling();
     initPageNavigation();
     addInteractiveEffects();
+    initBeamControl();
     
     // Initialize dashboard features with proper timing
     setTimeout(() => {
@@ -1661,11 +1662,146 @@ function initBeamControl() {
     loadZonesForBeamControl();
     updateBeamControlUI();
 
-    // Initialize webcam motion detection
-    initWebcamMotionDetection(); // ✅ Replace with webcam version
+    // Initialize webcam motion detection with zones
+    initWebcamMotionDetectionWithZones(); 
 
     console.log('✅ Beam control system initialized');
 }
+
+function initWebcamMotionDetectionWithZones() {
+    const video = document.getElementById('dashcamVideo');
+    const canvas = document.getElementById('motionCanvas');
+    const ctx = canvas.getContext('2d');
+    const motionStatus = document.querySelector('#motionStatus .status-text');
+
+    let previousFrame = null;
+    let webcamBaselineImage = null;
+    const userDrawnZones = window.userDrawnZones || []; // Zones like [{x, y, width, height}]
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+        console.error('❌ getUserMedia not supported');
+        if (motionStatus) {
+            motionStatus.textContent = 'Camera not supported.';
+            motionStatus.style.color = 'red';
+        }
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                video.play();
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                detectMotion();
+            };
+        })
+        .catch(err => {
+            console.error('🚫 Webcam error:', err);
+            if (motionStatus) {
+                motionStatus.textContent = 'Camera access denied.';
+                motionStatus.style.color = 'red';
+            }
+        });
+
+    function detectMotion() {
+        requestAnimationFrame(detectMotion);
+
+        if (video.readyState !== 4) return;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Frame-to-frame motion detection
+        if (previousFrame) {
+            let motionDetected = false;
+            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                const avgCurrent = (currentFrame.data[i] + currentFrame.data[i + 1] + currentFrame.data[i + 2]) / 3;
+                const avgPrevious = (previousFrame.data[i] + previousFrame.data[i + 1] + previousFrame.data[i + 2]) / 3;
+
+                if (Math.abs(avgCurrent - avgPrevious) > 25) {
+                    motionDetected = true;
+                    break;
+                }
+            }
+
+            if (motionStatus) {
+                motionStatus.textContent = motionDetected ? 'Motion Detected!' : 'Waiting for motion...';
+                motionStatus.style.color = motionDetected ? 'lime' : 'orange';
+            }
+
+            // Also run zone-based detection if baseline is captured
+            if (webcamBaselineImage && userDrawnZones.length > 0) {
+                detectMotionInZones(currentFrame, webcamBaselineImage, userDrawnZones, canvas.width);
+            }
+        }
+
+        previousFrame = currentFrame;
+        if (!webcamBaselineImage) webcamBaselineImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    }
+}
+
+
+function createZoneMask(zone, width, height) {
+    const mask = new Uint8Array(width * height);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    ctx.beginPath();
+    zone.points.forEach((pt, index) => {
+        const x = pt.x * width;
+        const y = pt.y * height;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.fill();
+
+    const imageData = ctx.getImageData(0, 0, width, height).data;
+    for (let i = 0; i < width * height; i++) {
+        mask[i] = imageData[i * 4 + 3] > 0 ? 1 : 0;
+    }
+    return mask;
+}
+
+function updateZoneStatusUI(zoneName, hasMotion) {
+    const zoneEl = document.querySelector(`[data-zone-name="${zoneName}"]`);
+    if (zoneEl) {
+        const badge = zoneEl.querySelector('.zone-status');
+        badge.classList.remove('motion', 'clear');
+        badge.classList.add(hasMotion ? 'motion' : 'clear');
+        badge.textContent = hasMotion ? 'Motion' : 'Clear';
+    }
+}
+
+
+function detectMotionInZone(webcamPixels, baselinePixels, mask) {
+    let changedPixels = 0;
+    let totalMasked = 0;
+
+    for (let i = 0; i < mask.length; i++) {
+        if (mask[i] === 1) {
+            const offset = i * 4;
+            const r1 = webcamPixels[offset];
+            const g1 = webcamPixels[offset + 1];
+            const b1 = webcamPixels[offset + 2];
+
+            const r2 = baselinePixels[offset];
+            const g2 = baselinePixels[offset + 1];
+            const b2 = baselinePixels[offset + 2];
+
+            const diff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+            if (diff > 50) changedPixels++;
+            totalMasked++;
+        }
+    }
+
+    return totalMasked > 0 ? changedPixels / totalMasked : 0;
+}
+
 
 
 function initVideoStreaming() {
@@ -2547,3 +2683,47 @@ function initWebcamMotionDetection() {
         previousFrame = currentFrame;
     }
 }
+
+function detectMotionInZones(currentImage, baselineImage, zones, canvasWidth) {
+    zones.forEach((zone, index) => {
+        let changedPixels = 0;
+        const { x, y, width, height } = zone;
+
+        for (let row = y; row < y + height; row++) {
+            for (let col = x; col < x + width; col++) {
+                const i = (row * canvasWidth + col) * 4;
+
+                const r1 = baselineImage.data[i];
+                const g1 = baselineImage.data[i + 1];
+                const b1 = baselineImage.data[i + 2];
+
+                const r2 = currentImage.data[i];
+                const g2 = currentImage.data[i + 1];
+                const b2 = currentImage.data[i + 2];
+
+                const diff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+
+                if (diff > 60) changedPixels++;
+            }
+        }
+
+        if (changedPixels > 100) {
+            console.log(`🚨 Motion detected in Zone ${index + 1}`);
+            // Optionally trigger UI or alerts
+            const zoneStatus = document.querySelector(`[data-zone-index="${index}"]`);
+            if (zoneStatus) {
+                zoneStatus.textContent = 'Motion';
+                zoneStatus.classList.add('motion');
+                zoneStatus.classList.remove('clear');
+            }
+        } else {
+            const zoneStatus = document.querySelector(`[data-zone-index="${index}"]`);
+            if (zoneStatus) {
+                zoneStatus.textContent = 'Clear';
+                zoneStatus.classList.remove('motion');
+                zoneStatus.classList.add('clear');
+            }
+        }
+    });
+}
+
