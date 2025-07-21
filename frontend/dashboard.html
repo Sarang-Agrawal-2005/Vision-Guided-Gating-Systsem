@@ -76,522 +76,255 @@
           }
         });
       });
+
+      // File upload functionality
+      const uploadZone = document.getElementById('uploadZone');
+      const videoInput = document.getElementById('videoInput');
+      const uploadProgress = document.getElementById('uploadProgress');
+      const videoPreview = document.getElementById('videoPreview');
+
+      uploadZone.addEventListener('click', () => {
+        videoInput.click();
+      });
+
+      uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+      });
+
+      uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+      });
+
+      uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFileUpload(files[0]);
+        }
+      });
+
+      videoInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handleFileUpload(e.target.files[0]);
+        }
+      });
+
+      function handleFileUpload(file) {
+        // Show progress
+        uploadZone.classList.add('hidden');
+        uploadProgress.classList.remove('hidden');
+        
+        // Simulate upload progress
+        let progress = 0;
+        const progressFill = document.getElementById('progressFill');
+        const progressPercentage = document.getElementById('progressPercentage');
+        
+        const interval = setInterval(() => {
+          progress += Math.random() * 15;
+          if (progress > 100) progress = 100;
+          
+          progressFill.style.width = progress + '%';
+          progressPercentage.textContent = Math.round(progress) + '%';
+          
+          if (progress >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+              uploadProgress.classList.add('hidden');
+              showVideoPreview(file);
+            }, 500);
+          }
+        }, 200);
+      }
+
+      function showVideoPreview(file) {
+        videoPreview.classList.remove('hidden');
+        
+        // Create video element to extract first frame
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(file);
+        
+        video.addEventListener('loadeddata', () => {
+          // Create canvas to capture first frame
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+          
+          // Set baseline frame
+          const baselineFrame = document.getElementById('baselineFrame');
+          baselineFrame.src = canvas.toDataURL();
+          
+          // Update video info
+          document.getElementById('videoName').textContent = file.name;
+          document.getElementById('videoDuration').textContent = formatDuration(video.duration);
+          document.getElementById('videoResolution').textContent = `${video.videoWidth}x${video.videoHeight}`;
+          document.getElementById('videoFps').textContent = '30 FPS'; // Estimated
+          
+          URL.revokeObjectURL(video.src);
+        });
+      }
+
+      function formatDuration(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+      }
+
+      // Range input updates
+      document.getElementById('motionThreshold').addEventListener('input', (e) => {
+        document.getElementById('thresholdValue').textContent = e.target.value;
+      });
+
+      document.getElementById('minArea').addEventListener('input', (e) => {
+        document.getElementById('areaValue').textContent = e.target.value;
+      });
+
+      document.getElementById('motionFrames').addEventListener('input', (e) => {
+        document.getElementById('framesValue').textContent = e.target.value;
+      });
+
+      // Beam control functionality
+      const startMonitoringBtn = document.getElementById('startMonitoringBtn');
+      const stopMonitoringBtn = document.getElementById('stopMonitoringBtn');
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+
+      startMonitoringBtn.addEventListener('click', () => {
+        startMonitoringBtn.style.display = 'none';
+        stopMonitoringBtn.style.display = 'inline-flex';
+        statusDot.classList.add('active');
+        statusText.textContent = 'ACTIVE';
+        statusText.classList.add('active');
+        
+        // Update status values
+        document.getElementById('detectionStatus').textContent = 'Yes';
+        document.getElementById('beamActiveStatus').textContent = 'Yes';
+        document.getElementById('lastEventTime').textContent = new Date().toLocaleTimeString();
+        
+        addEvent('Monitoring started', 'success');
+      });
+
+      stopMonitoringBtn.addEventListener('click', () => {
+        stopMonitoringBtn.style.display = 'none';
+        startMonitoringBtn.style.display = 'inline-flex';
+        statusDot.classList.remove('active');
+        statusText.textContent = 'STOPPED';
+        statusText.classList.remove('active');
+        
+        // Update status values
+        document.getElementById('detectionStatus').textContent = 'No';
+        document.getElementById('beamActiveStatus').textContent = 'No';
+        
+        addEvent('Monitoring stopped', 'info');
+      });
+
+      // Emergency stop
+      document.getElementById('emergencyStopBtn').addEventListener('click', () => {
+        stopMonitoringBtn.style.display = 'none';
+        startMonitoringBtn.style.display = 'inline-flex';
+        statusDot.classList.remove('active');
+        statusText.textContent = 'EMERGENCY STOP';
+        statusText.classList.remove('active');
+        
+        // Update status values
+        document.getElementById('detectionStatus').textContent = 'No';
+        document.getElementById('beamActiveStatus').textContent = 'No';
+        
+        addEvent('Emergency stop activated', 'error');
+      });
+
+      function addEvent(message, type = 'info') {
+        const eventsList = document.getElementById('eventsList');
+        const noEvents = eventsList.querySelector('.no-events');
+        
+        if (noEvents) {
+          eventsList.innerHTML = '';
+        }
+        
+        const eventItem = document.createElement('div');
+        eventItem.className = `event-item ${type}`;
+        eventItem.innerHTML = `
+          <div>
+            <span>${message}</span>
+            <small>${new Date().toLocaleTimeString()}</small>
+          </div>
+        `;
+        
+        eventsList.insertBefore(eventItem, eventsList.firstChild);
+      }
+
+      // Clear events
+      document.getElementById('clearEventsBtn').addEventListener('click', () => {
+        document.getElementById('eventsList').innerHTML = '<div class="no-events">No events recorded</div>';
+      });
+
+      // Upload new video
+      document.getElementById('uploadNewBtn').addEventListener('click', () => {
+        videoPreview.classList.add('hidden');
+        uploadZone.classList.remove('hidden');
+      });
+
+      // Confirm baseline
+      document.getElementById('confirmBaselineBtn').addEventListener('click', () => {
+        // Switch to zones tab
+        document.querySelector('[data-tab="analyze"]').click();
+        addEvent('Baseline confirmed successfully', 'success');
+      });
     });
   </script>
-  <style>
-    .pipeline-section {
-      padding: 4rem 2rem;
-      background-color: transparent;
-    }
-    .tab-nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content: center;
-      margin-bottom: 3rem;
-    }
-    .tab-btn {
-      padding: 1rem 2rem;
-      border: none;
-      background: transparent;
-      border-radius: var(--radius-md);
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-    }
-
-    .tab-btn::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 0;
-      height: 2px;
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
-      transition: width var(--transition-fast);
-    }
-
-    .tab-btn:hover::after {
-      width: 100%;
-    }
-
-    .tab-btn.active {
-      color: var(--text-primary);
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
-    }
-
-    .tab-btn.active::after {
-      width: 100%;
-    }
-
-    .tab-btn:hover:not(.active) {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text-primary);
-    }
-
-    .tab-panel {
-      display: none;
-    }
-    .tab-panel.active {
-      display: block;
-    }
-
-    /* Enhanced drawing status styles */
-    .drawing-status {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      margin-top: 0.5rem;
-      padding: 0.5rem 1rem;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: var(--radius-sm);
-      font-size: 0.9rem;
-    }
-
-    .drawing-status.active {
-      background: rgba(0, 200, 255, 0.2);
-      border: 1px solid rgba(0, 200, 255, 0.3);
-    }
-
-    #drawingStatus {
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-
-    #drawingStatus.active {
-      color: var(--primary);
-    }
-
-    #pointsCount {
-      color: var(--text-primary);
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 0.25rem 0.5rem;
-      border-radius: var(--radius-sm);
-    }
-
-    /* Range value display styles */
-    .range-value {
-      display: inline-block;
-      min-width: 3rem;
-      text-align: center;
-      font-weight: 600;
-      color: var(--primary);
-      background: rgba(0, 200, 255, 0.1);
-      padding: 0.25rem 0.5rem;
-      border-radius: var(--radius-sm);
-      margin-left: 0.5rem;
-    }
-
-    /* Zone card enhancements */
-    .zone-card {
-      border: 2px solid transparent;
-      transition: all var(--transition-fast);
-    }
-
-    .zone-card:hover {
-      border-color: var(--zone-color, var(--primary));
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      transform: translateY(-2px);
-    }
-
-    .zone-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 1rem;
-    }
-
-    .zone-info h4 {
-      margin: 0 0 0.5rem 0;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .priority-badge {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: white;
-    }
-
-    .zone-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .btn-icon {
-      width: 2rem;
-      height: 2rem;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .zone-details {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.5rem;
-    }
-
-    .detail-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.25rem 0;
-    }
-
-    .detail-item .label {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-    }
-
-    .detail-item .value {
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    /* Empty zones state */
-    .empty-zones {
-      text-align: center;
-      padding: 3rem 2rem;
-      color: var(--text-secondary);
-    }
-
-    .empty-zones i {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      color: var(--text-secondary);
-      opacity: 0.5;
-    }
-
-    .empty-zones p {
-      margin: 0.5rem 0;
-    }
-
-    .empty-zones p:first-of-type {
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    /* Beam Control Styles */
-    .beam-control-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem;
-      display: grid;
-      gap: 2rem;
-    }
-
-    .beam-status-section {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: var(--radius-lg);
-      padding: 2rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .status-card {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .status-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .status-header h3 {
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--text-primary);
-    }
-
-    .beam-indicator {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .status-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #ef4444;
-      animation: pulse 2s infinite;
-    }
-
-    .status-dot.active {
-      background: #10b981;
-    }
-
-    .status-text {
-      font-weight: 600;
-      color: #ef4444;
-    }
-
-    .status-text.active {
-      color: #10b981;
-    }
-
-    .control-buttons {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .status-info {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-    }
-
-    .status-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .status-item .label {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-
-    .status-item .value {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-
-    .beam-main-area {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 2rem;
-    }
-
-    .video-monitor, .zone-status-panel {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .monitor-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .monitor-header h3 {
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--text-primary);
-    }
-
-    .video-container {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: var(--radius-md);
-      min-height: 300px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-
-    .video-placeholder {
-      text-align: center;
-      color: var(--text-secondary);
-    }
-
-    .video-placeholder i {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      opacity: 0.5;
-    }
-
-    .video-placeholder p {
-      margin: 0.5rem 0;
-    }
-
-    .video-placeholder small {
-      font-size: 0.8rem;
-      opacity: 0.7;
-    }
-
-    .zone-status-panel h3 {
-      margin: 0 0 1rem 0;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--text-primary);
-    }
-
-    .zones-status-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .zone-status-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: var(--radius-sm);
-    }
-
-    .zone-info .zone-name {
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .zone-info small {
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-    }
-
-    .zone-status {
-      padding: 0.25rem 0.75rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-
-    .zone-status.clear {
-      background: rgba(16, 185, 129, 0.2);
-      color: #10b981;
-    }
-
-    .zone-status.motion {
-      background: rgba(239, 68, 68, 0.2);
-      color: #ef4444;
-    }
-
-    .no-zones-message {
-      text-align: center;
-      padding: 2rem;
-      color: var(--text-secondary);
-    }
-
-    .no-zones-message i {
-      font-size: 2rem;
-      margin-bottom: 1rem;
-      opacity: 0.5;
-    }
-
-    .beam-events-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-    }
-
-    .live-status, .events-log {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .live-status h3, .events-log h3 {
-      margin: 0 0 1rem 0;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--text-primary);
-    }
-
-    .status-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.75rem;
-    }
-
-    .events-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .events-list {
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    .no-events {
-      text-align: center;
-      color: var(--text-secondary);
-      padding: 2rem;
-      font-style: italic;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-      .beam-main-area {
-        grid-template-columns: 1fr;
-      }
-      
-      .beam-events-section {
-        grid-template-columns: 1fr;
-      }
-      
-      .control-buttons {
-        justify-content: center;
-      }
-      
-      .status-info {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-
 </head>
-<body style="position: relative; min-height: 100vh; overflow-x: hidden; background-color: var(--background);">
-  <div class="app-container" style="position: relative; z-index: 1; background-color: transparent;">
-    <nav class="navbar" style="position: relative; z-index: 1000; justify-content: center;">
-      <div class="logo" style="padding: 1.5rem 2rem; text-align: center; position: sticky;">
-        Vision-Guided <span class="highlight">Gating System</span>
+<body>
+  <div class="app-container">
+    <nav class="navbar">
+      <div class="nav-container">
+        <div class="logo">
+          Vision-Guided <span class="highlight">Gating System</span>
+        </div>
+        <div class="nav-links">
+          <a href="index.html" class="nav-link">Home</a>
+          <a href="#features" class="nav-link">Features</a>
+          <a href="#about" class="nav-link">About</a>
+          <a href="patent.html" class="nav-link">Patent</a>
+        </div>
+        <div class="nav-actions">
+          <a href="index.html" class="btn btn-outline">Back to Home</a>
+        </div>
+        <div class="mobile-menu-btn">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
       </div>
     </nav>
 
-    <section class="pipeline-section" style="position: sticky; padding-top: 0rem; background-color: transparent;">
-      <nav class="tabbar" style="position: sticky; top: 0%; background: transparent; z-index: 900; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); padding: 1rem 2rem;">
-        <a class="nav-link tab-btn active" data-tab="upload">Establish Baseline</a>
-        <a class="nav-link tab-btn" data-tab="analyze">Configure Zones</a>
-        <a class="nav-link tab-btn" data-tab="control">Control Beam</a>
-      </nav>
+    <section class="pipeline-section">
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="upload">
+          <i class="fas fa-upload"></i>
+          Establish Baseline
+        </button>
+        <button class="tab-btn" data-tab="analyze">
+          <i class="fas fa-crosshairs"></i>
+          Configure Zones
+        </button>
+        <button class="tab-btn" data-tab="control">
+          <i class="fas fa-radiation"></i>
+          Control Beam
+        </button>
+      </div>
 
       <!-- Upload Tab -->
       <div class="tab-panel active" id="upload">
         <div class="baseline-container">
           <div class="step-card">
-            <div class="logo" style="padding: 1.5rem 2rem; text-align: center;">
-              Upload<span class="highlight"> Test Video</span>
-            </div>
+            <h2>Upload <span class="highlight">Test Video</span></h2>
+            <p>Begin by uploading your baseline video for patient positioning reference</p>
           </div>
           
-          <!-- Upload Zone -->
           <div class="upload-zone" id="uploadZone">
             <div class="upload-content">
               <div class="upload-icon">
@@ -604,7 +337,6 @@
             <input type="file" id="videoInput" accept="video/*" style="display: none;">
           </div>
 
-          <!-- Upload Progress -->
           <div class="upload-progress hidden" id="uploadProgress">
             <div class="progress-info">
               <span id="progressStatus">Uploading...</span>
@@ -619,7 +351,6 @@
             </div>
           </div>
 
-          <!-- Video Preview -->
           <div class="video-preview hidden" id="videoPreview">
             <h3>Baseline Frame Preview</h3>
             <div class="baseline-frame-container">
@@ -659,7 +390,7 @@
         </div>
       </div>
 
-      <!-- Setup Zones Tab -->
+      <!-- Configure Zones Tab -->
       <div class="tab-panel" id="analyze">
         <div class="zones-container">
           <div class="zones-header">
@@ -667,7 +398,6 @@
             <p>Define motion detection zones on your baseline frame</p>
           </div>
 
-          <!-- Zone Drawing Canvas -->
           <div class="canvas-section">
             <div class="canvas-controls">
               <div class="drawing-controls">
@@ -675,19 +405,18 @@
                   <i class="fas fa-pencil-alt"></i>
                   Start Drawing Zone
                 </button>
-                <button class="btn btn-outline" id="clearPointsBtn" disabled>
+                <button class="btn btn-outline" id="clearPointsBtn">
                   <i class="fas fa-eraser"></i>
                   Clear Points
                 </button>
-                <button class="btn btn-outline" id="undoPointBtn" disabled>
+                <button class="btn btn-outline" id="undoPointBtn">
                   <i class="fas fa-undo"></i>
                   Undo Last Point
                 </button>
               </div>
-              <!-- Enhanced drawing status with proper IDs -->
               <div class="drawing-status" id="drawingStatusContainer">
                 <span id="drawingStatus">Click "Start Drawing" to begin</span>
-                <span id="pointsCount">Points: 0</span>
+                <span class="range-value" id="pointsCount">Points: 0</span>
               </div>
             </div>
 
@@ -703,11 +432,10 @@
             </div>
           </div>
 
-          <!-- Zone Configuration Form -->
           <div class="zone-config-form" id="zoneConfigForm">
             <div class="form-header">
-              <h3>Configure Zone</h3>
-              <p>Set parameters for your new detection zone</p>
+              <h3>Configure Zone Parameters</h3>
+              <p>Set detection parameters for your new zone</p>
             </div>
             <form id="zoneForm">
               <div class="form-grid">
@@ -771,8 +499,7 @@
             </form>
           </div>
 
-          <!-- Existing Zones List -->
-          <div class="zones-list" id="zonesList">
+          <div class="zones-list">
             <div class="zones-list-header">
               <h3>Configured Zones</h3>
               <div class="zones-actions">
@@ -784,7 +511,6 @@
                   <i class="fas fa-upload"></i>
                   Import Config
                 </button>
-                <input type="file" id="importZonesInput" accept=".json" style="display: none;">
               </div>
             </div>
             <div class="zones-grid" id="zonesGrid">
@@ -798,149 +524,126 @@
         </div>
       </div>
 
-      <!-- BEAM CONTROL TAB - CORRECTED -->
-      <div id="control" class="tab-panel">
+      <!-- Control Beam Tab -->
+      <div class="tab-panel" id="control">
         <div class="beam-control-container">
-            <!-- Beam Status Section -->
-            <div class="beam-status-section">
-                <div class="status-card">
-                    <div class="status-header">
-                        <h3><i class="fas fa-radiation"></i> Beam Status</h3>
-                        <div class="beam-indicator" id="beamIndicator">
-                            <span class="status-dot" id="statusDot"></span>
-                            <span class="status-text" id="statusText">STOPPED</span>
-                        </div>
-                    </div>
-                    
-                    <!-- CORRECTED CONTROL BUTTONS -->
-                    <div class="control-buttons">
-                        <button id="startMonitoringBtn" class="btn btn-primary">
-                            <i class="fas fa-play"></i>
-                            Start Monitoring
-                        </button>
-                        <button id="stopMonitoringBtn" class="btn btn-outline" style="display: none;">
-                            <i class="fas fa-stop"></i>
-                            Stop Monitoring
-                        </button>
-                        <button id="emergencyStopBtn" class="btn" style="background: #ef4444; color: white;">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Emergency Stop
-                        </button>
-                    </div>
-                    
-                    <div class="status-info">
-                        <div class="status-item">
-                            <span class="label">Current Zone:</span>
-                            <span class="value" id="currentZone">None</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Active Zones:</span>
-                            <span class="value" id="activeZones">0</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Last Event:</span>
-                            <span class="value" id="lastEvent">None</span>
-                        </div>
-                    </div>            
+          <div class="zones-header">
+            <h2>Beam <span class="highlight">Control System</span></h2>
+            <p>Monitor and control radiotherapy beam based on patient motion</p>
+          </div>
+
+          <div class="beam-status-section">
+            <div class="status-card">
+              <div class="status-header">
+                <h3><i class="fas fa-radiation"></i> Beam Status</h3>
+                <div class="beam-indicator">
+                  <span class="status-dot" id="statusDot"></span>
+                  <span class="status-text" id="statusText">STOPPED</span>
                 </div>
+              </div>
+              
+              <div class="control-buttons">
+                <button id="startMonitoringBtn" class="btn btn-primary">
+                  <i class="fas fa-play"></i>
+                  Start Monitoring
+                </button>
+                <button id="stopMonitoringBtn" class="btn btn-outline" style="display: none;">
+                  <i class="fas fa-stop"></i>
+                  Stop Monitoring
+                </button>
+                <button id="emergencyStopBtn" class="btn" style="background: var(--error); color: white;">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  Emergency Stop
+                </button>
+                <button class="btn btn-outline" id="processVideoBtn">
+                  <i class="fas fa-cog"></i>
+                  Process Video with Zones
+                </button>
+              </div>
+              
+              <div class="status-info">
+                <div class="status-item">
+                  <span class="label">Current Zone:</span>
+                  <span class="value" id="currentZone">None</span>
+                </div>
+                <div class="status-item">
+                  <span class="label">Active Zones:</span>
+                  <span class="value" id="activeZones">0</span>
+                </div>
+                <div class="status-item">
+                  <span class="label">Detection Active:</span>
+                  <span class="value" id="detectionStatus">No</span>
+                </div>
+                <div class="status-item">
+                  <span class="label">Last Event:</span>
+                  <span class="value" id="lastEvent">None</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="beam-main-area">
+            <div class="video-monitor">
+              <div class="monitor-header">
+                <h3><i class="fas fa-video"></i> Live Video Monitor</h3>
+              </div>
+              <div class="video-container" id="videoContainer">
+                <div class="video-placeholder" id="videoPlaceholder">
+                  <i class="fas fa-video-slash"></i>
+                  <p>No video loaded</p>
+                  <small>Upload a video and configure zones first</small>
+                </div>
+                <video id="processedVideo" controls style="display: none; width: 100%; max-height: 400px;"></video>
+              </div>
             </div>
 
-            <!-- Main Control Area -->
-            <div class="beam-main-area">
-                <!-- Video Monitor -->
-                <div class="video-monitor">
-                    <div class="monitor-header">
-                        <h3><i class="fas fa-video"></i> Live Video Monitor</h3>
-                        <div class="monitor-controls">
-                            <button class="btn btn-sm" id="processVideoBtn">
-                                <i class="fas fa-cog"></i> Process Video with Zones
-                            </button>
-                        </div>
-                    </div>
-                    <div class="video-container" id="videoContainer">
-                        <div class="video-placeholder" id="videoPlaceholder">
-                            <i class="fas fa-video-slash"></i>
-                            <p>No video loaded</p>
-                            <small>Upload a video and configure zones first</small>
-                        </div>
-                        <video id="processedVideo" controls style="display: none; width: 100%; max-height: 400px;"></video>
-                    </div>
+            <div class="zone-status-panel">
+              <h3><i class="fas fa-crosshairs"></i> Zone Status</h3>
+              <div class="zones-status-list" id="zonesStatusList">
+                <div class="no-zones-message">
+                  <i class="fas fa-info-circle"></i>
+                  <p>No zones configured</p>
+                  <small>Go to Zone Setup to create detection zones</small>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                <!-- Zone Status Panel -->
-                <div class="zone-status-panel">
-                    <h3><i class="fas fa-crosshairs"></i> Zone Status</h3>
-                    <div class="zones-status-list" id="zonesStatusList">
-                        <div class="no-zones-message">
-                            <i class="fas fa-info-circle"></i>
-                            <p>No zones configured</p>
-                            <small>Go to Zone Setup to create detection zones</small>
-                        </div>
-                    </div>
+          <div class="beam-events-section">
+            <div class="live-status">
+              <h3><i class="fas fa-heartbeat"></i> Live Status</h3>
+              <div class="status-grid">
+                <div class="status-item">
+                  <span class="label">Zones Clear:</span>
+                  <span class="value" id="zonesClearStatus">Unknown</span>
                 </div>
+                <div class="status-item">
+                  <span class="label">Beam Active:</span>
+                  <span class="value" id="beamActiveStatus">No</span>
+                </div>
+                <div class="status-item">
+                  <span class="label">Last Event Time:</span>
+                  <span class="value" id="lastEventTime">Never</span>
+                </div>
+              </div>
             </div>
 
-            <!-- Live Status and Events -->
-            <div class="beam-events-section">
-                <div class="live-status">
-                    <h3><i class="fas fa-heartbeat"></i> Live Status</h3>
-                    <div class="status-grid" id="liveStatusGrid">
-                        <div class="status-item">
-                            <span class="label">Detection Active:</span>
-                            <span class="value" id="detectionStatus">No</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Zones Clear:</span>
-                            <span class="value" id="zonesClearStatus">Unknown</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Beam Active:</span>
-                            <span class="value" id="beamActiveStatus">No</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Last Event:</span>
-                            <span class="value" id="lastEventTime">Never</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="events-log">
-                    <div class="events-header">
-                        <h3><i class="fas fa-list"></i> Recent Events</h3>
-                        <button class="btn btn-sm" id="clearEventsBtn">
-                            <i class="fas fa-trash"></i> Clear
-                        </button>
-                    </div>
-                    <div class="events-list" id="eventsList">
-                        <div class="no-events">No events recorded</div>
-                    </div>
-                </div>
+            <div class="events-log">
+              <div class="events-header">
+                <h3><i class="fas fa-list"></i> Recent Events</h3>
+                <button class="btn btn-sm" id="clearEventsBtn">
+                  <i class="fas fa-trash"></i>
+                  Clear
+                </button>
+              </div>
+              <div class="events-list" id="eventsList">
+                <div class="no-events">No events recorded</div>
+              </div>
             </div>
+          </div>
         </div>
       </div>
-
     </section>
   </div>
-
-  <style>
-    html, body {
-      height: 100%;
-      min-height: 100vh;
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
-    }
-    
-    .particles-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      pointer-events: none;
-      background: transparent;
-    }
-  </style>
 </body>
 </html>
