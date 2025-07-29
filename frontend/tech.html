@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Technology - Vision-Guided Gating System</title>
+  <link rel="stylesheet" href="main.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+</head>
+<body>
+  <div class="app-container">
+    <nav class="navbar" id="navbar">
+      <div class="nav-container">
+        <div class="logo">
+            <i class="fas fa-crosshairs"></i>
+            Vision-Guided <span class="highlight">Gating System</span></div>
+
+        <div class="nav-links">
+          <a href="index.html" class="nav-link">Home</a>
+          <a href="patent.html" class="nav-link">Patent</a>
+          <a href="features.html" class="nav-link">Features</a>
+          <a href="tech.html" class="nav-link active">Technology</a>
+          <a href="safety.html" class="nav-link">Safety</a>
+          
+        </div>
+        <div class="nav-actions">
+          <button class="btn btn-primary" onclick="window.location.href='dashboard.html'">
+            Launch System
+          </button>
+        </div>
+        <div class="mobile-menu-btn" id="mobileMenuBtn"><span></span><span></span><span></span></div>
+      </div>
+    </nav>
+
+    <section class="resume-tips-section">
+      <div class="tips-container">
+        <div class="tips-header">
+          <h1 class="tips-title">Core <span class="highlight">Technology Stack</span></h1>
+          <p class="tips-subtitle">
+            Underlying frameworks and libraries powering sub-100ms response, precision vision processing, and scalable integration
+          </p>
+        </div>
+
+        <div class="tips-grid">
+          <!-- Computer Vision Core -->
+          <div class="tip-card featured">
+            <div class="tip-icon"><i class="fas fa-camera"></i></div>
+            <h3 class="tip-title">Computer Vision & Image Processing</h3>
+            <ul class="tip-list">
+              <li>OpenCV for video decoding & frame extraction</li>
+              <li>Background subtraction via MOG2 algorithm</li>
+              <li>Sub-millimeter motion detection with custom CV pipelines</li>
+            </ul>
+          </div>
+
+          <!-- Backend Framework -->
+          <div class="tip-card success">
+            <div class="tip-icon"><i class="fas fa-code"></i></div>
+            <h3 class="tip-title">Backend & API</h3>
+            <ul class="tip-list">
+              <li>FastAPI serving REST endpoints and WebSocket streams</li>
+              <li>Asynchronous Python with asyncio for low-latency operations</li>
+              <li>Uvicorn/Gunicorn for production deployment</li>
+            </ul>
+          </div>
+
+          <!-- Real-Time Streaming -->
+          <div class="tip-card priority">
+            <div class="tip-icon"><i class="fas fa-stream"></i></div>
+            <h3 class="tip-title">Real-Time Data Streaming</h3>
+            <ul class="tip-list">
+              <li>WebSocket-based live video & control channels</li>
+              <li>JSON over WS for event notifications & status updates</li>
+              <li>Sub-100ms end-to-end frame-to-gate latency</li>
+            </ul>
+          </div>
+
+          <!-- Frontend Technologies -->
+          <div class="tip-card">
+            <div class="tip-icon"><i class="fas fa-desktop"></i></div>
+            <h3 class="tip-title">Frontend & UX</h3>
+            <ul class="tip-list">
+              <li>Vanilla JavaScript + HTML5 Canvas for zone drawing</li>
+              <li>Responsive design with CSS Grid & Flexbox</li>
+              <li>Font Awesome icons and Google Fonts (Inter, Poppins)</li>
+            </ul>
+          </div>
+
+          <!-- Data Management -->
+          <div class="tip-card">
+            <div class="tip-icon"><i class="fas fa-database"></i></div>
+            <h3 class="tip-title">Database & Storage</h3>
+            <ul class="tip-list">
+              <li>SQLite for lightweight, embedded data storage</li>
+              <li>SQLAlchemy ORM for schema and migrations</li>
+              <li>Metadata logging with timestamped event tables</li>
+            </ul>
+          </div>
+
+          <!-- Concurrency & Performance -->
+          <div class="tip-card warning">
+            <div class="tip-icon"><i class="fas fa-tachometer-alt"></i></div>
+            <h3 class="tip-title">Concurrency & Performance</h3>
+            <ul class="tip-list">
+              <li>Multi-threaded frame processing pipeline</li>
+              <li>Async I/O for non-blocking video upload/download</li>
+              <li>Queue-based worker pools for scalable throughput</li>
+            </ul>
+          </div>
+
+          <!-- DevOps & Deployment -->
+          <div class="tip-card">
+            <div class="tip-icon"><i class="fas fa-server"></i></div>
+            <h3 class="tip-title">DevOps & Deployment</h3>
+            <ul class="tip-list">
+              <li>Docker containerization for reproducible builds</li>
+              <li>Kubernetes-ready manifests for scalable clusters</li>
+              <li>CI/CD pipelines with GitHub Actions</li>
+            </ul>
+          </div>
+
+          <!-- Security & Protocols -->
+          <div class="tip-card success">
+            <div class="tip-icon"><i class="fas fa-shield-alt"></i></div>
+            <h3 class="tip-title">Security & Protocols</h3>
+            <ul class="tip-list">
+              <li>HTTPS/TLS encryption for all API endpoints</li>
+              <li>CORS and CSRF protection configured in FastAPI</li>
+              <li>Role-based JWT authentication</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="cta-section">
+          <h2>Leverage Cutting-Edge Technology</h2>
+          <p>Experience unmatched speed and reliability with our vision-guided gating platform</p>
+          <div class="cta-actions">
+            <button class="btn btn-primary btn-lg" onclick="window.location.href='dashboard.html'">
+              <i class="fas fa-rocket"></i> Launch System
+            </button>
+            <button class="btn btn-outline btn-lg" onclick="window.location.href='patent.html'">
+              <i class="fas fa-certificate"></i> View Patent
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>

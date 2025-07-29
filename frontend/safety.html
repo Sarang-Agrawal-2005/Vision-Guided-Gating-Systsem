@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Safety Features - Vision-Guided Gating System</title>
+  <link rel="stylesheet" href="main.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+</head>
+<body>
+  <div class="app-container">
+    <nav class="navbar" id="navbar">
+      <div class="nav-container">
+        <div class="logo">
+            <i class="fas fa-crosshairs"></i>
+            Vision-Guided <span class="highlight">Gating System</span></div>
+        <div class="nav-links">
+          <a href="index.html" class="nav-link">Home</a>
+          <a href="patent.html" class="nav-link">Patent</a>
+          <a href="features.html" class="nav-link">Features</a>
+          <a href="tech.html" class="nav-link">Technology</a>
+          <a href="safety.html" class="nav-link active">Safety</a>
+        </div>
+        <div class="nav-actions">
+          <button class="btn btn-primary" onclick="window.location.href='dashboard.html'">
+            Launch System
+          </button>
+        </div>
+        <div class="mobile-menu-btn" id="mobileMenuBtn"><span></span><span></span><span></span></div>
+      </div>
+    </nav>
+
+    <section class="resume-tips-section">
+      <div class="tips-container">
+        <div class="tips-header">
+          <h1 class="tips-title">Robust <span class="highlight">Safety Features</span></h1>
+          <p class="tips-subtitle">
+            Ensuring patient protection and regulatory compliance with sub-100ms beam-gating response
+          </p>
+        </div>
+
+        <div class="tips-grid">
+          <!-- Emergency Stop -->
+          <div class="tip-card warning">
+            <div class="tip-icon"><i class="fas fa-stop-circle"></i></div>
+            <h3 class="tip-title">Emergency Stop</h3>
+            <ul class="tip-list">
+              <li>Instant beam cut-off on critical event detection</li>
+              <li>Hardware interlock overrides for failsafe shutdown</li>
+              <li>Manual and software-triggered emergency halt</li>
+            </ul>
+          </div>
+
+          <!-- Redundant Motion Checks -->
+          <div class="tip-card featured">
+            <div class="tip-icon"><i class="fas fa-sync-alt"></i></div>
+            <h3 class="tip-title">Redundant Motion Checks</h3>
+            <ul class="tip-list">
+              <li>Dual-channel sensor fusion for motion validation</li>
+              <li>Cross-verification of camera and accelerometer data</li>
+              <li>Sub-100ms end-to-end gating response time</li>
+            </ul>
+          </div>
+
+          <!-- Audit Trail -->
+          <div class="tip-card">
+            <div class="tip-icon"><i class="fas fa-file-alt"></i></div>
+            <h3 class="tip-title">Comprehensive Audit Trail</h3>
+            <ul class="tip-list">
+              <li>Immutable logs of every gating event</li>
+              <li>Detailed metadata: timestamps, frame IDs, operator actions</li>
+              <li>Secure export for regulatory review</li>
+            </ul>
+          </div>
+
+          <!-- Health Monitoring -->
+          <div class="tip-card">
+            <div class="tip-icon"><i class="fas fa-heartbeat"></i></div>
+            <h3 class="tip-title">Real-Time System Health</h3>
+            <ul class="tip-list">
+              <li>Continuous self-diagnostics on camera, CPU, and I/O</li>
+              <li>Automated alerts for sensor drift or signal loss</li>
+              <li>Failover routines to maintain safe state</li>
+            </ul>
+          </div>
+
+          <!-- Data Integrity -->
+          <div class="tip-card success">
+            <div class="tip-icon"><i class="fas fa-shield-alt"></i></div>
+            <h3 class="tip-title">Data Integrity & Security</h3>
+            <ul class="tip-list">
+              <li>Encrypted storage for video and logs</li>
+              <li>Role-based access controls and audit permissions</li>
+              <li>Automatic data validation and CRC checks</li>
+            </ul>
+          </div>
+
+          <!-- Compliance Protocols -->
+          <div class="tip-card priority">
+            <div class="tip-icon"><i class="fas fa-balance-scale"></i></div>
+            <h3 class="tip-title">Compliance Protocols</h3>
+            <ul class="tip-list">
+              <li>FDA and CE-marked workflow adherence</li>
+              <li>Built-in QC routines for routine safety tests</li>
+              <li>Detailed reporting for IA and QA audits</li>
+            </ul>
+          </div>
+
+          <!-- Fail-Safe Mechanisms -->
+          <div class="tip-card">
+            <div class="tip-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 class="tip-title">Fail-Safe Mechanisms</h3>
+            <ul class="tip-list">
+              <li>Watchdog timers to detect application hangs</li>
+              <li>Automatic system reboot into safe mode</li>
+              <li>Graceful degradation to manual gating if needed</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="cta-section">
+          <h2>Built for Unwavering Safety</h2>
+          <p>Experience sub-100ms response gating and full compliance safeguards</p>
+          <div class="cta-actions">
+            <button class="btn btn-primary btn-lg" onclick="window.location.href='dashboard.html'">
+              <i class="fas fa-rocket"></i> Launch System
+            </button>
+            <button class="btn btn-outline btn-lg" onclick="window.location.href='patent.html'">
+              <i class="fas fa-certificate"></i> View Patent
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
